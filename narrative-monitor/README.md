@@ -123,11 +123,25 @@ Monde all confirmed resolving with real entries. The Times of Israel was
 dropped (commented out, same as Reuters) — it returns HTTP 403 with 0
 entries even with a browser User-Agent, a bot/WAF block rather than a dead
 URL, and working around that is out of scope for a public-sources-only
-tool. Press TV and Al Jazeera failed with a local SSL trust-chain error
-(`unable to get local issuer certificate`) — that's a client-side cert
-issue, not proof the feed is down, so they're left active pending a
-re-check after `pip install --upgrade certifi`. See the comments in
-`sources.py` for the full detail per source.
+tool.
+
+Press TV and Al Jazeera failed verification too, but stayed active in the
+list — the failure turned out to be **network-level blocking from the
+tester's location (Israel), not a broken feed**. Al Jazeera is blocked at
+the ISP/carrier level in Israel by law (2024); Press TV, as Iranian state
+media, hit similar filtering. This was confirmed by testing the URLs
+directly in a browser from two different Israeli networks (home ISP and a
+mobile carrier) and getting two *different* certificate errors for the same
+domains — the signature of two networks implementing the same block
+differently, not two coincidentally-broken servers. A `certifi` upgrade did
+not fix it, which is expected since the cause isn't a local trust-store
+issue. Both feeds are expected to resolve normally from most other
+locations, including Streamlit Community Cloud's hosting. **If you're
+verifying or running the pipeline from a country that blocks one of these
+outlets**, either use a VPN with an egress point elsewhere, or accept that
+`feed_collector.py` will just log a warning and skip that source for the
+run — it degrades gracefully per-source rather than crashing. See the
+comments in `sources.py` for the full detail per source.
 
 Re-run this after any change to `sources.py`, or before a fresh deploy:
 
@@ -141,9 +155,18 @@ failure looks like a local cert issue rather than a dead feed). Comment out
 
 ## Running the pipeline locally
 
+> **macOS tip:** if your clone lives inside `~/Desktop` or `~/Documents`
+> with iCloud Drive's "Desktop & Documents Folders" sync on (or inside any
+> Dropbox/OneDrive/Google Drive-synced folder), creating a venv there dumps
+> tens of thousands of small files into a syncing directory and can make
+> every shell command in that folder hang for a minute or more while the
+> sync client churns through them. Put the venv itself outside the synced
+> folder instead, e.g. `python -m venv ~/venvs/narrative-monitor`, and
+> activate that — the repo can stay wherever it is.
+
 ```bash
 # 1. Set up
-python -m venv .venv && source .venv/bin/activate
+python -m venv .venv && source .venv/bin/activate   # see the macOS tip above if this is slow
 pip install -r requirements.txt
 cp .env.example .env   # then fill in ANTHROPIC_API_KEY=sk-ant-...
 
