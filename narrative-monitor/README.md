@@ -112,23 +112,32 @@ narrative-monitor/
 
 `sources.py` lists RSS feeds with a `perspective` label
 (`Western` / `Israeli` / `Iranian_state` / `Arab` / `French`):
-CNN, BBC (Western); Jerusalem Post, Times of Israel (Israeli); Press TV,
-Tehran Times (Iranian_state); Al Jazeera (Arab); France 24, Le Monde
-(French). Reuters was deliberately left out (commented, with a note) — its
-public RSS feeds were discontinued around 2020 and known historical URLs are
-dead.
+CNN, BBC (Western); Jerusalem Post (Israeli); Press TV, Tehran Times
+(Iranian_state); Al Jazeera (Arab); France 24, Le Monde (French). Reuters
+was deliberately left out (commented, with a note) — its public RSS feeds
+were discontinued around 2020 and known historical URLs are dead.
 
-**Verify before relying on this list.** These URLs were sourced from public
-documentation, not live-checked, because the sandbox this project was built
-in blocks outbound HTTPS to news domains entirely (confirmed for every
-domain above). Run this locally, on a machine with normal internet access:
+**Verified status** (from actually running `verify_sources.py`, not just
+documentation): CNN, BBC, Jerusalem Post, Tehran Times, France 24, and Le
+Monde all confirmed resolving with real entries. The Times of Israel was
+dropped (commented out, same as Reuters) — it returns HTTP 403 with 0
+entries even with a browser User-Agent, a bot/WAF block rather than a dead
+URL, and working around that is out of scope for a public-sources-only
+tool. Press TV and Al Jazeera failed with a local SSL trust-chain error
+(`unable to get local issuer certificate`) — that's a client-side cert
+issue, not proof the feed is down, so they're left active pending a
+re-check after `pip install --upgrade certifi`. See the comments in
+`sources.py` for the full detail per source.
+
+Re-run this after any change to `sources.py`, or before a fresh deploy:
 
 ```bash
 python verify_sources.py
 ```
 
-It reports HTTP status + parsed entry count per source. Comment out (or
-replace) anything that fails.
+It reports HTTP status + parsed entry count per source (and a hint when a
+failure looks like a local cert issue rather than a dead feed). Comment out
+(or replace) anything that's confirmed actually broken.
 
 ## Running the pipeline locally
 

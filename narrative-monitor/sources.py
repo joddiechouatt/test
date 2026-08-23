@@ -4,22 +4,25 @@ Each entry: {"name": str, "rss_url": str, "perspective": str}
 
 perspective is one of: "Western", "Israeli", "Iranian_state", "Arab", "French".
 
-IMPORTANT — read before relying on this list:
-This file was built inside a sandboxed build environment whose network egress
-policy blocks outbound HTTPS to news domains (CNN, BBC, Al Jazeera, Times of
-Israel, Jerusalem Post, Press TV, Tehran Times, France 24, Le Monde were all
-tested and rejected by the egress proxy — see the confirmation in
-`verify_sources.py`'s docstring). That means these URLs could NOT be
-live-verified as part of this build, only checked against public documentation
-and prior knowledge of each outlet's feed conventions.
+Verification status (last run by the developer via `verify_sources.py`):
+- CONFIRMED resolving: CNN World, BBC World News, The Jerusalem Post,
+  Tehran Times, France 24, Le Monde (all HTTP 200 with parsed entries).
+- DROPPED: The Times of Israel — HTTP 403 with 0 entries even with a
+  browser-like User-Agent, the signature of bot/WAF protection rather than a
+  dead URL. Working around that is out of scope (this project is "public
+  sources only... no auth bypass"), so it's commented out below, same as
+  Reuters.
+- PENDING re-confirmation: Press TV, Al Jazeera English — both failed with
+  `SSLError: unable to get local issuer certificate`, which is a *client-side*
+  trust-chain error, not evidence the feed itself is down (other HTTPS
+  sources resolved fine on the same run). Most likely fix:
+  `pip install --upgrade certifi`, then re-run `verify_sources.py`. Left
+  active below pending that re-check; if they still fail after upgrading
+  certifi, drop them the same way Times of Israel was dropped.
 
-Before relying on this list, run, from a machine with normal internet access:
+Re-run this whenever the list changes or before a fresh deploy:
 
     python verify_sources.py
-
-It fetches every URL below and reports HTTP status + parsed entry count so you
-can confirm each feed actually resolves, and comment out / replace any that
-don't (a note is left next to each entry indicating confidence level).
 """
 
 SOURCES = [
@@ -58,11 +61,15 @@ SOURCES = [
         "rss_url": "https://www.jpost.com/rss/rssfeedsfrontpage.aspx",
         "perspective": "Israeli",
     },
-    {
-        "name": "The Times of Israel",
-        "rss_url": "https://www.timesofisrael.com/feed/",
-        "perspective": "Israeli",
-    },
+    # Dropped: confirmed via verify_sources.py to return HTTP 403 with 0
+    # entries even with a browser-like User-Agent — bot/WAF protection, not a
+    # dead URL. Not worked around (see file-level note above). Israeli
+    # perspective is still covered by Jerusalem Post.
+    # {
+    #     "name": "The Times of Israel",
+    #     "rss_url": "https://www.timesofisrael.com/feed/",
+    #     "perspective": "Israeli",
+    # },
 
     # --- Iranian state media ---
     # Included deliberately: this tool's purpose is comparative narrative
@@ -73,8 +80,11 @@ SOURCES = [
         "name": "Press TV",
         "rss_url": "https://www.presstv.ir/rss.xml",
         "perspective": "Iranian_state",
-        # Iran-hosted infrastructure can be flaky/geo-sensitive from some
-        # networks; verify locally and consider retry/backoff at collection time.
+        # verify_sources.py reported: SSLError: unable to get local issuer
+        # certificate. That's a client-side trust-chain gap, not proof the
+        # feed is down (other HTTPS sources resolved fine in the same run).
+        # Try `pip install --upgrade certifi` and re-run verify_sources.py
+        # before concluding this one is dead.
     },
     {
         "name": "Tehran Times",
@@ -87,6 +97,9 @@ SOURCES = [
         "name": "Al Jazeera English",
         "rss_url": "https://www.aljazeera.com/xml/rss/all.xml",
         "perspective": "Arab",
+        # Same SSLError as Press TV above (unable to get local issuer
+        # certificate) — client-side trust-chain gap, not a confirmed dead
+        # feed. Re-test after `pip install --upgrade certifi`.
     },
 
     # --- French ---
