@@ -123,9 +123,9 @@ narrative-monitor/
 `paywall: true` flag (shown as a 🔒 badge in the dashboard — only the RSS
 title/summary is ever fetched, but the "Open article" link may hit a
 paywall on the source's own site): BBC, Reuters, AP (Western); i24NEWS,
-Arutz Sheva/Israel National News, Jerusalem Post (Israeli); Tasnim, Mehr,
-Al Mayadeen, Tehran Times (Iranian_state); Al Jazeera, Middle East Eye
-(Arab); France 24, RFI (French).
+Arutz Sheva/Israel National News, Jerusalem Post (Israeli); Al Mayadeen,
+Tehran Times (Iranian_state); Al Jazeera, Middle East Eye (Arab); France 24,
+RFI (French).
 
 **Reuters and AP have no current public RSS feed** — both wire services
 discontinued theirs around 2020-2021, and no historical URL still works.
@@ -144,24 +144,26 @@ networks including outside Israel — a genuinely broken/self-issued
 certificate on their end, not a geo-block or local trust-store issue (a
 `certifi` upgrade didn't fix it, and it recurred from Streamlit Community
 Cloud's own hosting). Replaced with i24NEWS and Arutz Sheva/Israel National
-News (Israeli), and Tasnim News Agency, Mehr News Agency, and Al Mayadeen
-English (Iranian_state — Al Mayadeen is actually a Beirut-based outlet
-aligned with the Iran/Hezbollah axis rather than Iranian state media
-itself, included as an explicit fallback per request; see the note next to
-its entry in `sources.py` if you'd rather give it a distinct perspective
-label). **All five replacements are UNVERIFIED** — best-known URLs, not
-independently tested, and for i24NEWS/Tasnim/Al Mayadeen specifically the
-feed path itself is a low-confidence guess (these outlets' RSS conventions
-aren't well-documented), not just an unconfirmed-but-standard URL. Jerusalem
-Post and Tehran Times were kept as-is precisely so each perspective still
-has one already-confirmed source regardless of how the new candidates test.
+News (Israeli), and Al Mayadeen English (Iranian_state — actually a
+Beirut-based outlet aligned with the Iran/Hezbollah axis rather than
+Iranian state media itself, included as an explicit fallback per request;
+see the note next to its entry in `sources.py` if you'd rather give it a
+distinct perspective label). Tasnim News Agency and Mehr News Agency were
+also tried as Press TV replacements and dropped — developer-confirmed
+blocking access outright, not a URL issue. **The three remaining
+replacements are UNVERIFIED** — best-known URLs, not independently tested,
+and for i24NEWS/Al Mayadeen specifically the feed path itself is a
+low-confidence guess (these outlets' RSS conventions aren't
+well-documented), not just an unconfirmed-but-standard URL. Jerusalem Post
+and Tehran Times were kept as-is precisely so each perspective still has
+one already-confirmed source regardless of how the new candidates test.
 
 **Verified status** (mixed — see `sources.py`'s file-level docstring for
 the full per-source breakdown): BBC's general world feed, Jerusalem Post,
 Tehran Times, Al Jazeera, and France 24's general feed have all been
 confirmed resolving with real entries in earlier passes. The
 Middle-East-section variants used for BBC and France 24 here, Middle East
-Eye, RFI, and all five Times-of-Israel/Press-TV replacements above are
+Eye, RFI, and the three Times-of-Israel/Press-TV replacements above are
 **unverified** — best-known URLs, not independently tested (most have a
 documented fallback in `sources.py` if they 404).
 

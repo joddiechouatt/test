@@ -23,25 +23,28 @@ graded by confidence:
   feed to point at. See the Reuters/AP entries below for the workaround
   used instead (Google News RSS, clearly not the same thing as the wire
   service's own feed).
-- REMOVED (developer-confirmed unusable, replaced this pass): The Times of
-  Israel (HTTP 403 / bot-WAF block via one client, malformed-XML via
-  another - same underlying block, two symptoms) and Press TV (SSL
-  CERTIFICATE_VERIFY_FAILED - a genuinely broken/self-issued cert on their
-  end, confirmed from multiple networks including outside Israel, not a
-  geo-block or a local trust-store issue). Their replacement candidates
-  below (i24NEWS, Arutz Sheva/INN for Israeli; Tasnim, Mehr, Al Mayadeen for
-  Iranian_state) are themselves UNVERIFIED - run verify_sources.py and
-  trim any that fail before treating this list as final.
+- REMOVED (developer-confirmed unusable): The Times of Israel (HTTP 403 /
+  bot-WAF block via one client, malformed-XML via another - same underlying
+  block, two symptoms), Press TV (SSL CERTIFICATE_VERIFY_FAILED - a
+  genuinely broken/self-issued cert on their end, confirmed from multiple
+  networks including outside Israel, not a geo-block or a local trust-store
+  issue), and Tasnim News Agency / Mehr News Agency (developer-confirmed
+  blocking access outright - their own site denied the request rather than
+  resolving as a normal feed). Times of Israel's replacements (i24NEWS,
+  Arutz Sheva/INN) and Al Mayadeen (Press TV's remaining replacement
+  candidate, after Tasnim/Mehr were dropped) are themselves UNVERIFIED -
+  run verify_sources.py and trim any that fail before treating this list
+  as final.
 - UNVERIFIED, best-known URL from documentation/training knowledge, not
   independently tested: Middle East Eye, RFI, i24NEWS, Arutz Sheva/Israel
-  National News, Tasnim News Agency, Mehr News Agency, Al Mayadeen. Several
-  of these (i24NEWS, Tasnim, Al Mayadeen especially) are genuinely
-  low-confidence guesses at the RSS path, not just an unconfirmed-but-likely
-  URL - these outlets' feed conventions aren't well-documented, so a 404 on
-  first try is a real possibility, not just a formality. Section-specific
-  (Middle East / world) variants for BBC and France 24 are also unverified
-  even though their general feeds are confirmed - a wrong section-path
-  guess would 404 even though the outlet's RSS in general works.
+  National News, Al Mayadeen. i24NEWS and Al Mayadeen especially are
+  genuinely low-confidence guesses at the RSS path, not just an
+  unconfirmed-but-likely URL - these outlets' feed conventions aren't
+  well-documented, so a 404 on first try is a real possibility, not just a
+  formality. Section-specific (Middle East / world) variants for BBC and
+  France 24 are also unverified even though their general feeds are
+  confirmed - a wrong section-path guess would 404 even though the
+  outlet's RSS in general works.
 
 Run this locally (not in a network-restricted sandbox) before trusting any
 of the unconfirmed entries below - this is genuinely required this pass,
@@ -127,24 +130,14 @@ SOURCES = [
     # Press TV was dropped (see file-level note): confirmed
     # SSL CERTIFICATE_VERIFY_FAILED from multiple networks including
     # outside Israel - a genuinely broken/self-issued certificate on their
-    # end, not a geo-block or a local trust-store issue. Replaced with two
-    # Iranian-domestic candidates below, both UNVERIFIED, plus Al Mayadeen
-    # as an explicit fallback.
-    {
-        "name": "Tasnim News Agency",
-        "rss_url": "https://www.tasnimnews.com/en/rss",
-        "perspective": "Iranian_state",
-        # UNVERIFIED, LOW confidence - same caveat as i24NEWS above, this
-        # is a guess at the path. Iran-hosted infrastructure can also be
-        # flaky/geo-sensitive from some networks independent of the URL
-        # being correct. Free, no paywall.
-    },
-    {
-        "name": "Mehr News Agency",
-        "rss_url": "https://en.mehrnews.com/rss",
-        "perspective": "Iranian_state",
-        # UNVERIFIED, medium confidence. Free, no paywall.
-    },
+    # end, not a geo-block or a local trust-store issue.
+    #
+    # Tasnim News Agency and Mehr News Agency were tried as replacement
+    # candidates and dropped: developer-confirmed blocking access (their own
+    # site denied/blocked the request) rather than resolving as a normal
+    # feed. Not guessed around - if you want to try either again later, an
+    # alternate URL or an access-restriction workaround would need to be
+    # found and re-verified from scratch, same as any other candidate.
     {
         "name": "Al Mayadeen English",
         "rss_url": "https://english.almayadeen.net/rss",
