@@ -101,6 +101,7 @@ CSS = """
 .art .top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
 .art .src{font-size:12px;color:var(--mut);display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .persp{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:999px;letter-spacing:.4px}
+.paywall{font-size:11px;opacity:.85;cursor:help}
 .art h3{font-size:15.5px;margin:8px 0;line-height:1.35}
 .art h3 a{color:var(--ink);text-decoration:none}
 .art h3 a:hover{color:var(--amber)}
@@ -333,14 +334,16 @@ def render_article_card(row: pd.Series, coverage: int):
     disinfo = int(row.get("disinfo_score", 0) or 0)
     disinfo_class = "d-hi" if disinfo >= 3 else "d-low"
     bar_pct = max(0, min(100, int(relevance / 5 * 100)))
+    is_paywalled = bool(row.get("paywall", False))
 
     meta_time = f" · {time_ago}" if time_ago else ""
+    paywall_badge = ' <span class="paywall" title="Source may paywall full articles">🔒</span>' if is_paywalled else ""
 
     st.markdown(
         f"""
         <div class="art" style="border-left-color:var({color_var})">
           <div class="top">
-            <div class="src"><span class="persp" style="background:color-mix(in srgb, var({color_var}) 15%, transparent);color:var({color_var})">{badge_label}</span> {source}{meta_time}</div>
+            <div class="src"><span class="persp" style="background:color-mix(in srgb, var({color_var}) 15%, transparent);color:var({color_var})">{badge_label}</span> {source}{paywall_badge}{meta_time}</div>
             <a class="open" href="{link}" target="_blank" rel="noopener noreferrer">Open article ↗</a>
           </div>
           <h3><a href="{link}" target="_blank" rel="noopener noreferrer">{title}</a></h3>
@@ -548,9 +551,12 @@ else:
         render_article_card(row, int(row["coverage_overlap"]))
 
 st.markdown(
-    '<div class="note"><b>Portfolio demonstration.</b> "Coverage overlap" is computed locally '
-    "from title-similarity across collected articles (no reliable view/share counts are exposed "
-    "by RSS feeds) - an approximation, not a guaranteed story-clustering signal. All narrative/tone/"
-    "disinformation fields are one LLM's read of a short title+summary, not verified fact.</div>",
+    '<div class="note"><b>Portfolio demonstration.</b> 🔒 marks a source known to paywall some or '
+    'all full articles - only the RSS title/summary is ever fetched here regardless, but clicking '
+    '"Open article" may hit a paywall on the source\'s own site. "Coverage overlap" is computed '
+    "locally from title-similarity across collected articles (no reliable view/share counts are "
+    "exposed by RSS feeds) - an approximation, not a guaranteed story-clustering signal. All "
+    "narrative/tone/disinformation fields are one LLM's read of a short title+summary, not "
+    "verified fact.</div>",
     unsafe_allow_html=True,
 )

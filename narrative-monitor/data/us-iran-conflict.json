@@ -1,7 +1,7 @@
 {
   "topic": "US-Iran Conflict",
   "topic_slug": "us-iran-conflict",
-  "generated_at": "2026-08-23T20:50:50.079982+00:00",
+  "generated_at": "2026-08-24T13:37:19.225890+00:00",
   "keywords": {
     "topic": "US-Iran Conflict",
     "strong": {
@@ -56,12 +56,13 @@
   },
   "articles": [
     {
-      "source": "CNN World",
+      "source": "BBC News - Middle East",
       "perspective": "Western",
-      "title": "[SAMPLE DATA — synthetic, not a real headline] CNN World coverage #1 of the US-Iran conflict",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] BBC News - Middle East coverage #1 of the US-Iran conflict",
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
-      "link": "https://example.com/sample/cnn-world",
+      "link": "https://example.com/sample/bbc-news---middle-east",
       "published": "2026-08-20T12:00:00Z",
+      "paywall": false,
       "relevance_score": 3,
       "main_narrative": "US and Iran weigh next steps after latest round of indirect nuclear talks.",
       "tone": "neutral",
@@ -80,12 +81,13 @@
       "synthetic": true
     },
     {
-      "source": "BBC World News",
+      "source": "Reuters (via Google News)",
       "perspective": "Western",
-      "title": "[SAMPLE DATA — synthetic, not a real headline] BBC World News coverage #2 of the US-Iran conflict",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] Reuters (via Google News) coverage #2 of the US-Iran conflict",
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
-      "link": "https://example.com/sample/bbc-world-news",
+      "link": "https://example.com/sample/reuters-(via-google-news)",
       "published": "2026-08-20T12:00:00Z",
+      "paywall": true,
       "relevance_score": 5,
       "main_narrative": "US and Iran weigh next steps after latest round of indirect nuclear talks.",
       "tone": "neutral",
@@ -104,16 +106,17 @@
       "synthetic": true
     },
     {
-      "source": "The Jerusalem Post",
-      "perspective": "Israeli",
-      "title": "[SAMPLE DATA — synthetic, not a real headline] The Jerusalem Post coverage #3 of the US-Iran conflict",
+      "source": "AP News (via Google News)",
+      "perspective": "Western",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] AP News (via Google News) coverage #3 of the US-Iran conflict",
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
-      "link": "https://example.com/sample/the-jerusalem-post",
+      "link": "https://example.com/sample/ap-news-(via-google-news)",
       "published": "2026-08-20T12:00:00Z",
-      "relevance_score": 4,
-      "main_narrative": "New IAEA data on Iran's enrichment stockpile raises alarm in Jerusalem.",
-      "tone": "alarmist",
-      "blame_attribution": "Iran",
+      "paywall": false,
+      "relevance_score": 3,
+      "main_narrative": "US and Iran weigh next steps after latest round of indirect nuclear talks.",
+      "tone": "neutral",
+      "blame_attribution": "Unclear / shared",
       "key_claims": [
         "[SAMPLE] placeholder claim 1",
         "[SAMPLE] placeholder claim 2"
@@ -123,7 +126,7 @@
         "conflates unrelated events",
         "single anonymous source"
       ],
-      "disinfo_score": 5,
+      "disinfo_score": 4,
       "analysis_error": null,
       "synthetic": true
     },
@@ -134,7 +137,8 @@
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
       "link": "https://example.com/sample/the-times-of-israel",
       "published": "2026-08-20T12:00:00Z",
-      "relevance_score": 3,
+      "paywall": false,
+      "relevance_score": 5,
       "main_narrative": "New IAEA data on Iran's enrichment stockpile raises alarm in Jerusalem.",
       "tone": "alarmist",
       "blame_attribution": "Iran",
@@ -151,16 +155,17 @@
       "synthetic": true
     },
     {
-      "source": "Press TV",
-      "perspective": "Iranian_state",
-      "title": "[SAMPLE DATA — synthetic, not a real headline] Press TV coverage #5 of the US-Iran conflict",
+      "source": "The Jerusalem Post",
+      "perspective": "Israeli",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] The Jerusalem Post coverage #5 of the US-Iran conflict",
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
-      "link": "https://example.com/sample/press-tv",
+      "link": "https://example.com/sample/the-jerusalem-post",
       "published": "2026-08-20T12:00:00Z",
+      "paywall": true,
       "relevance_score": 5,
-      "main_narrative": "Iran frames US regional posture as provocation requiring a firm response.",
-      "tone": "defensive",
-      "blame_attribution": "United States",
+      "main_narrative": "New IAEA data on Iran's enrichment stockpile raises alarm in Jerusalem.",
+      "tone": "alarmist",
+      "blame_attribution": "Iran",
       "key_claims": [
         "[SAMPLE] placeholder claim 1",
         "[SAMPLE] placeholder claim 2"
@@ -174,12 +179,13 @@
       "synthetic": true
     },
     {
-      "source": "Tehran Times",
+      "source": "Press TV",
       "perspective": "Iranian_state",
-      "title": "[SAMPLE DATA — synthetic, not a real headline] Tehran Times coverage #6 of the US-Iran conflict",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] Press TV coverage #6 of the US-Iran conflict",
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
-      "link": "https://example.com/sample/tehran-times",
+      "link": "https://example.com/sample/press-tv",
       "published": "2026-08-20T12:00:00Z",
+      "paywall": false,
       "relevance_score": 5,
       "main_narrative": "Iran frames US regional posture as provocation requiring a firm response.",
       "tone": "defensive",
@@ -198,12 +204,38 @@
       "synthetic": true
     },
     {
+      "source": "Tehran Times",
+      "perspective": "Iranian_state",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] Tehran Times coverage #7 of the US-Iran conflict",
+      "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
+      "link": "https://example.com/sample/tehran-times",
+      "published": "2026-08-20T12:00:00Z",
+      "paywall": false,
+      "relevance_score": 4,
+      "main_narrative": "Iran frames US regional posture as provocation requiring a firm response.",
+      "tone": "defensive",
+      "blame_attribution": "United States",
+      "key_claims": [
+        "[SAMPLE] placeholder claim 1",
+        "[SAMPLE] placeholder claim 2"
+      ],
+      "disinfo_signals": [
+        "single anonymous source",
+        "unsourced claim",
+        "loaded/emotional language"
+      ],
+      "disinfo_score": 4,
+      "analysis_error": null,
+      "synthetic": true
+    },
+    {
       "source": "Al Jazeera English",
       "perspective": "Arab",
-      "title": "[SAMPLE DATA — synthetic, not a real headline] Al Jazeera English coverage #7 of the US-Iran conflict",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] Al Jazeera English coverage #8 of the US-Iran conflict",
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
       "link": "https://example.com/sample/al-jazeera-english",
       "published": "2026-08-20T12:00:00Z",
+      "paywall": false,
       "relevance_score": 4,
       "main_narrative": "Regional mediators call for de-escalation as Gulf states monitor tensions.",
       "tone": "neutral",
@@ -213,45 +245,41 @@
         "[SAMPLE] placeholder claim 2"
       ],
       "disinfo_signals": [
-        "single anonymous source",
-        "loaded/emotional language",
-        "conflates unrelated events"
+        "loaded/emotional language"
       ],
-      "disinfo_score": 3,
+      "disinfo_score": 1,
       "analysis_error": null,
       "synthetic": true
     },
     {
-      "source": "France 24",
-      "perspective": "French",
-      "title": "[SAMPLE DATA — synthetic, not a real headline] France 24 coverage #8 of the US-Iran conflict",
+      "source": "Middle East Eye",
+      "perspective": "Arab",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] Middle East Eye coverage #9 of the US-Iran conflict",
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
-      "link": "https://example.com/sample/france-24",
+      "link": "https://example.com/sample/middle-east-eye",
       "published": "2026-08-20T12:00:00Z",
-      "relevance_score": 3,
-      "main_narrative": "Paris urges restraint and a return to diplomatic channels on the Iran file.",
+      "paywall": false,
+      "relevance_score": 4,
+      "main_narrative": "Regional mediators call for de-escalation as Gulf states monitor tensions.",
       "tone": "neutral",
-      "blame_attribution": "Unclear / shared",
+      "blame_attribution": "Both sides",
       "key_claims": [
         "[SAMPLE] placeholder claim 1",
         "[SAMPLE] placeholder claim 2"
       ],
-      "disinfo_signals": [
-        "loaded/emotional language",
-        "unsourced claim",
-        "conflates unrelated events"
-      ],
-      "disinfo_score": 3,
+      "disinfo_signals": [],
+      "disinfo_score": 0,
       "analysis_error": null,
       "synthetic": true
     },
     {
-      "source": "Le Monde",
+      "source": "France 24 - Middle East",
       "perspective": "French",
-      "title": "[SAMPLE DATA — synthetic, not a real headline] Le Monde coverage #9 of the US-Iran conflict",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] France 24 - Middle East coverage #10 of the US-Iran conflict",
       "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
-      "link": "https://example.com/sample/le-monde",
+      "link": "https://example.com/sample/france-24---middle-east",
       "published": "2026-08-20T12:00:00Z",
+      "paywall": false,
       "relevance_score": 4,
       "main_narrative": "Paris urges restraint and a return to diplomatic channels on the Iran file.",
       "tone": "neutral",
@@ -261,9 +289,32 @@
         "[SAMPLE] placeholder claim 2"
       ],
       "disinfo_signals": [
+        "single anonymous source"
+      ],
+      "disinfo_score": 1,
+      "analysis_error": null,
+      "synthetic": true
+    },
+    {
+      "source": "RFI",
+      "perspective": "French",
+      "title": "[SAMPLE DATA — synthetic, not a real headline] RFI coverage #11 of the US-Iran conflict",
+      "summary": "This is placeholder demo content generated without a live LLM/network call (the build sandbox blocks both). It is NOT real reporting from this outlet. Run `python run_pipeline.py \"US-Iran Conflict\"` locally with a real ANTHROPIC_API_KEY to replace this with genuine collected + analyzed articles.",
+      "link": "https://example.com/sample/rfi",
+      "published": "2026-08-20T12:00:00Z",
+      "paywall": false,
+      "relevance_score": 3,
+      "main_narrative": "Paris urges restraint and a return to diplomatic channels on the Iran file.",
+      "tone": "neutral",
+      "blame_attribution": "Unclear / shared",
+      "key_claims": [
+        "[SAMPLE] placeholder claim 1",
+        "[SAMPLE] placeholder claim 2"
+      ],
+      "disinfo_signals": [
+        "conflates unrelated events",
         "single anonymous source",
-        "loaded/emotional language",
-        "unsourced claim"
+        "loaded/emotional language"
       ],
       "disinfo_score": 3,
       "analysis_error": null,

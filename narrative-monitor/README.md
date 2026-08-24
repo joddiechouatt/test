@@ -111,37 +111,44 @@ narrative-monitor/
 ## Sources
 
 `sources.py` lists RSS feeds with a `perspective` label
-(`Western` / `Israeli` / `Iranian_state` / `Arab` / `French`):
-CNN, BBC (Western); Jerusalem Post (Israeli); Press TV, Tehran Times
-(Iranian_state); Al Jazeera (Arab); France 24, Le Monde (French). Reuters
-was deliberately left out (commented, with a note) — its public RSS feeds
-were discontinued around 2020 and known historical URLs are dead.
+(`Western` / `Israeli` / `Iranian_state` / `Arab` / `French`) and an optional
+`paywall: true` flag (shown as a 🔒 badge in the dashboard — only the RSS
+title/summary is ever fetched, but the "Open article" link may hit a
+paywall on the source's own site): BBC, Reuters, AP (Western); Times of
+Israel, Jerusalem Post (Israeli); Press TV, Tehran Times (Iranian_state);
+Al Jazeera, Middle East Eye (Arab); France 24, RFI (French).
 
-**Verified status** (from actually running `verify_sources.py`, not just
-documentation): CNN, BBC, Jerusalem Post, Tehran Times, France 24, and Le
-Monde all confirmed resolving with real entries. The Times of Israel was
-dropped (commented out, same as Reuters) — it returns HTTP 403 with 0
-entries even with a browser User-Agent, a bot/WAF block rather than a dead
-URL, and working around that is out of scope for a public-sources-only
-tool.
+**Reuters and AP have no current public RSS feed** — both wire services
+discontinued theirs around 2020-2021, and no historical URL still works.
+Rather than point at a dead link, both use a Google News RSS search scoped
+to the outlet's domain (`site:reuters.com` / `site:apnews.com`) as a free,
+public workaround. This is **not** the wire service's own feed — it's
+Google's aggregation/excerpt of their articles, so summaries are shorter
+and the framing is Google's snippet choice, not the outlet's own dek. Flagged
+in `sources.py` so it's not mistaken for a first-party source.
 
-Press TV and Al Jazeera failed verification too, but stayed active in the
-list — the failure turned out to be **network-level blocking from the
-tester's location (Israel), not a broken feed**. Al Jazeera is blocked at
-the ISP/carrier level in Israel by law (2024); Press TV, as Iranian state
-media, hit similar filtering. This was confirmed by testing the URLs
-directly in a browser from two different Israeli networks (home ISP and a
-mobile carrier) and getting two *different* certificate errors for the same
-domains — the signature of two networks implementing the same block
-differently, not two coincidentally-broken servers. A `certifi` upgrade did
-not fix it, which is expected since the cause isn't a local trust-store
-issue. Both feeds are expected to resolve normally from most other
-locations, including Streamlit Community Cloud's hosting. **If you're
-verifying or running the pipeline from a country that blocks one of these
-outlets**, either use a VPN with an egress point elsewhere, or accept that
+**Verified status** (mixed — see `sources.py`'s file-level docstring for
+the full per-source breakdown): BBC's general world feed, Jerusalem Post,
+Press TV, Tehran Times, Al Jazeera, and France 24's general feed have all
+been confirmed resolving with real entries in earlier passes. The
+Middle-East-section variants used for BBC and France 24 here, plus Middle
+East Eye and RFI, are **unverified** — best-known URLs, not independently
+tested (each has a documented fallback in `sources.py` if it 404s). The
+Times of Israel is known-flaky: it returns HTTP 403 via one HTTP client and
+a malformed-XML parse error via another, both symptoms of the same bot/WAF
+protection — included per request, but verify locally before relying on it.
+
+Press TV and Al Jazeera also fail from **inside Israel specifically** —
+Al Jazeera is blocked at the ISP/carrier level there by law (2024), and
+Press TV, as Iranian state media, hits similar filtering — confirmed by two
+different certificate errors on two different Israeli networks (home ISP
+vs. mobile carrier), the signature of a network-level block, not a broken
+feed. Both are expected to resolve normally from most other locations,
+including Streamlit Community Cloud's hosting. **If you're verifying or
+running the pipeline from a country that blocks one of these outlets**,
+either use a VPN with an egress point elsewhere, or accept that
 `feed_collector.py` will just log a warning and skip that source for the
-run — it degrades gracefully per-source rather than crashing. See the
-comments in `sources.py` for the full detail per source.
+run — it degrades gracefully per-source rather than crashing.
 
 Re-run this after any change to `sources.py`, or before a fresh deploy:
 

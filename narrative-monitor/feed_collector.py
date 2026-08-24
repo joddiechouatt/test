@@ -91,7 +91,7 @@ def collect_articles(keywords: dict, sources: list | None = None, delay: float =
 
     Returns:
         List of normalized article dicts:
-        {source, perspective, title, summary, link, published}
+        {source, perspective, title, summary, link, published, paywall}
     """
     sources = sources if sources is not None else SOURCES
     flat_keywords = _flatten_keywords(keywords)
@@ -129,6 +129,7 @@ def collect_articles(keywords: dict, sources: list | None = None, delay: float =
                     "summary": summary,
                     "link": link,
                     "published": published,
+                    "paywall": bool(source.get("paywall", False)),
                 }
             )
             kept_from_source += 1
