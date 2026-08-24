@@ -27,6 +27,9 @@ from datetime import datetime, timezone
 import pandas as pd
 import streamlit as st
 
+from loading_graph import CSS as LOADING_GRAPH_CSS
+from loading_graph import build_loading_html
+
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 RELEVANCE_FLOOR = 3
 LIVE_MODE_REQUEST_CAP = 3  # per browser session
@@ -61,7 +64,8 @@ SORT_OPTIONS = ["Relevance", "Date", "Disinformation score", "Coverage overlap"]
 # becomes `.app-header{...}` here, applied to a plain <div>.
 # ---------------------------------------------------------------------------
 
-CSS = """
+CSS = (
+    """
 <style>
 :root{
   --bg:#0F1620; --panel:#18222F; --panel2:#1F2C3D; --line:#2A3849;
@@ -84,9 +88,9 @@ CSS = """
 .picklabel{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:9px}
 .orsep{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:1px}
 .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--line)}
-.globespin{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--ice);font-size:13px}
-.globespin .globe-icon{display:inline-block;font-size:22px;line-height:1;animation:globe-rotate 1.6s linear infinite}
-@keyframes globe-rotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+"""
+    + LOADING_GRAPH_CSS
+    + """
 .topictitle{display:flex;align-items:baseline;gap:10px;margin:26px 0 4px;flex-wrap:wrap}
 .topictitle h2{font-size:22px;margin:0;color:var(--ink)}
 .tt-tag{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--amber);background:rgba(224,164,88,.12);border:1px solid var(--amber);border-radius:999px;padding:3px 10px}
@@ -163,6 +167,7 @@ CSS = """
 }
 </style>
 """
+)
 
 st.markdown(CSS, unsafe_allow_html=True)
 
@@ -371,6 +376,32 @@ def render_article_card(row: pd.Series, coverage: int):
 # Live mode pipeline (cached, rate-limited)
 # ---------------------------------------------------------------------------
 
+def resolve_api_key() -> str | None:
+    """Find ANTHROPIC_API_KEY from the environment or Streamlit secrets.
+
+    Two gotchas this works around:
+    - st.secrets.get(...) raises StreamlitSecretNotFoundError (not a normal
+      dict miss) when no secrets.toml/secret exists at all - very much the
+      common case for local dev via .env, so this must be guarded or the
+      whole app crashes the moment someone clicks Analyze.
+    - Every pipeline module (keyword_generator.py, analyzer.py, via
+      utils.get_anthropic_client()) only ever reads os.environ, not
+      st.secrets. So a key found only in st.secrets is copied into
+      os.environ here, or live mode would keep failing even with the key
+      correctly set in Streamlit Cloud's Secrets UI.
+    """
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key:
+        return key
+    try:
+        key = st.secrets.get("ANTHROPIC_API_KEY", None)
+    except Exception:  # noqa: BLE001 - no secrets configured at all
+        key = None
+    if key:
+        os.environ["ANTHROPIC_API_KEY"] = key
+    return key
+
+
 @st.cache_data(show_spinner=False)
 def run_live_pipeline(topic: str) -> dict:
     """Run the full pipeline for a custom topic. Cached by topic string so
@@ -465,7 +496,7 @@ if featured and featured != st.session_state.active_label:
     st.session_state.active_payload = load_topic_data(topics[featured])
 
 if analyze_clicked and live_topic_input.strip():
-    api_key = os.environ.get("ANTHROPIC_API_KEY") or st.secrets.get("ANTHROPIC_API_KEY", None)
+    api_key = resolve_api_key()
     if not api_key:
         st.error(
             "Live mode is not configured: no ANTHROPIC_API_KEY found in environment or "
@@ -473,13 +504,14 @@ if analyze_clicked and live_topic_input.strip():
         )
     else:
         st.session_state.live_mode_request_count += 1
-        # Custom spinner (a rotating-globe emoji via CSS animation) instead of
-        # st.spinner's default icon - st.empty() placeholder so it's cleanly
-        # removed once the pipeline finishes, one way or the other.
+        # Custom loading indicator (an animated connection graph - nodes
+        # fade in and get linked by lines, like a link-analysis map
+        # assembling itself) instead of st.spinner's default icon.
+        # st.empty() placeholder so it's cleanly removed once the pipeline
+        # finishes, one way or the other.
         spinner_placeholder = st.empty()
         spinner_placeholder.markdown(
-            f'<div class="globespin"><span class="globe-icon">🌍</span> '
-            f"Collecting and analyzing articles about &ldquo;{html.escape(live_topic_input.strip())}&rdquo;...</div>",
+            build_loading_html(live_topic_input.strip()),
             unsafe_allow_html=True,
         )
         try:
