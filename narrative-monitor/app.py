@@ -91,7 +91,15 @@ CSS = (
   --gulf:#C2A55C; --turkish:#DA7B54; --maghreb:#6FA97A; --egyptian:#8FA6C9;
 }
 .stApp{background:var(--bg);color:var(--ink);}
-.main .block-container{max-width:1080px;padding-top:1.5rem;padding-bottom:3rem;}
+/* Selector covers both the current Streamlit DOM (data-testid, no more
+   .main wrapper) and older versions (.main .block-container) - the .main
+   -prefixed rule alone silently stopped matching after a Streamlit version
+   bump, which is why the page had been stretching edge-to-edge instead of
+   centering. margin:0 auto does the actual centering; max-width alone just
+   caps the width and leaves it flush left. */
+[data-testid="stMainBlockContainer"], .main .block-container, .block-container{
+  max-width:1080px;margin:0 auto;padding-top:1.5rem;padding-bottom:3rem;
+}
 .stApp, .stApp p, .stApp span, .stApp label{color:var(--ink);}
 [data-testid="stMarkdownContainer"] p{color:var(--ink);}
 
@@ -100,7 +108,14 @@ CSS = (
 .brand span{color:var(--amber)}
 .tag{color:var(--mut);font-size:13px;margin-top:2px}
 
-.searchcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:4px}
+/* st.container(key="searchcard") below, not a raw <div class="searchcard">
+   opened in one st.markdown() call and closed in another - Streamlit
+   renders each st.markdown() as its own isolated DOM node, so an
+   opening tag with no matching close in the *same* call gets
+   auto-closed by the browser as an empty element. That produced a
+   visible empty gray bar above the actual (unstyled, floating)
+   content instead of one bordered card wrapping everything. */
+.st-key-searchcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:4px}
 .hint{color:var(--mut);font-size:12px;margin-top:10px;font-style:italic}
 .picklabel{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:9px}
 .orsep{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:1px}
@@ -545,45 +560,52 @@ if "live_mode_request_count" not in st.session_state:
 
 # --- Search card: featured-topic chips (live analysis, same as search) + free-text entry ---
 apply_pending_chip_sync()  # must run before the pills widget below is instantiated
-st.markdown('<div class="searchcard">', unsafe_allow_html=True)
-st.markdown('<div class="picklabel">Pick a proposed topic</div>', unsafe_allow_html=True)
-featured = st.pills(
-    "Featured topics",
-    FEATURED_TOPICS,
-    selection_mode="single",
-    default=st.session_state.active_label if st.session_state.active_label in FEATURED_TOPICS else None,
-    label_visibility="collapsed",
-    key="featured_topic_pill",
-)
-
-st.markdown('<div class="orsep"><span>or</span></div>', unsafe_allow_html=True)
-
-search_col, button_col = st.columns([5, 1])
-with search_col:
-    live_topic_input = st.text_input(
-        "Search",
-        placeholder="Search any MENA topic",
+# st.container(key=...) rather than a raw <div class="searchcard"> opened in
+# one st.markdown() and closed in another - Streamlit renders every element
+# call as its own isolated DOM node, so a tag opened in one call and closed
+# in a later one never actually wraps anything; the browser just auto-closes
+# the orphaned opening tag as an empty element (the stray gray bar this
+# replaces). A keyed container puts everything below inside one real div the
+# .st-key-searchcard CSS rule can style - same technique already used for
+# the featured-topic pills' scoped styling further down this stylesheet.
+with st.container(key="searchcard"):
+    st.markdown('<div class="picklabel">Pick a topic</div>', unsafe_allow_html=True)
+    featured = st.pills(
+        "Featured topics",
+        FEATURED_TOPICS,
+        selection_mode="single",
+        default=st.session_state.active_label if st.session_state.active_label in FEATURED_TOPICS else None,
         label_visibility="collapsed",
-        key="live_topic_input",
+        key="featured_topic_pill",
     )
-with button_col:
-    remaining = LIVE_MODE_REQUEST_CAP - st.session_state.live_mode_request_count
-    analyze_clicked = st.button("Analyze", disabled=(remaining <= 0), use_container_width=True)
 
-if remaining <= 0:
-    st.markdown(
-        f'<div class="hint">Live-mode limit reached ({LIVE_MODE_REQUEST_CAP} requests this session) — '
-        "reload the page to reset.</div>",
-        unsafe_allow_html=True,
-    )
-else:
-    st.markdown(
-        f'<div class="hint">Pick a featured topic or search any MENA '
-        f"topic - both run a fresh live analysis ({remaining}/{LIVE_MODE_REQUEST_CAP} requests left "
-        "this session).</div>",
-        unsafe_allow_html=True,
-    )
-st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown('<div class="orsep"><span>or</span></div>', unsafe_allow_html=True)
+
+    search_col, button_col = st.columns([5, 1])
+    with search_col:
+        live_topic_input = st.text_input(
+            "Search",
+            placeholder="Search any MENA topic",
+            label_visibility="collapsed",
+            key="live_topic_input",
+        )
+    with button_col:
+        remaining = LIVE_MODE_REQUEST_CAP - st.session_state.live_mode_request_count
+        analyze_clicked = st.button("Analyze", disabled=(remaining <= 0), use_container_width=True)
+
+    if remaining <= 0:
+        st.markdown(
+            f'<div class="hint">Live-mode limit reached ({LIVE_MODE_REQUEST_CAP} requests this session) — '
+            "reload the page to reset.</div>",
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(
+            f'<div class="hint">Pick a featured topic or search any MENA '
+            f"topic - both run a fresh live analysis ({remaining}/{LIVE_MODE_REQUEST_CAP} requests left "
+            "this session).</div>",
+            unsafe_allow_html=True,
+        )
 
 # --- React to whichever interaction fired this run ---
 # st.pills persists its selected value across every rerun, not just the one
