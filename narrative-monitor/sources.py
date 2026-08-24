@@ -33,32 +33,39 @@ for how an unmapped (free-text/live-search) topic falls back.
 VERIFICATION STATUS — read before trusting this list
 ============================================================================
 Live-tested for real via a GitHub Actions run (.github/workflows/
-verify-sources.yml, run #1, 2026-08-24) — GitHub-hosted runners have normal
-internet access, unlike the build sandbox this file was originally drafted
-in (which had every news/RSS domain egress-blocked; the workflow exists
-specifically so this project doesn't depend on a local machine to verify
-sources). Full result: 12/22 resolved, 10/22 failed.
+verify-sources.yml) — GitHub-hosted runners have normal internet access,
+unlike the build sandbox this file was originally drafted in (which had
+every news/RSS domain egress-blocked; the workflow exists specifically so
+this project doesn't depend on a local machine to verify sources).
 
-- CONFIRMED (verified=True, 12): BBC News - World, Reuters (via Google
-  News), AP News (via Google News), Arutz Sheva, The Jerusalem Post,
-  Al Jazeera English, Jeune Afrique, TSA - Tout Sur l'Algerie, Hespress
-  (French edition), Egypt Independent, France 24, RFI.
-- FAILED (verified=False, 10, commented out below with the exact error):
-  Al Mayadeen English (403), Al-Manar (404), Al Arabiya English (403),
-  Arab News (403), The National/UAE (404), TRT World (404), Daily Sabah
-  (200 but 0 entries / malformed), Morocco World News (403), Ahram Online
-  (403), L'Orient-Le Jour (404). 403s read as bot/WAF blocking (out of
-  scope to defeat, per this project's public-sources-only stance, same
-  treatment as the earlier Times of Israel drop); 404s mean the guessed
-  RSS path is wrong, not necessarily that the outlet has no feed at all.
+- Run #1 (direct feeds): 12/22 resolved. 10 failed — Al Mayadeen English
+  (403), Al-Manar (404), Al Arabiya English (403), Arab News (403), The
+  National/UAE (404), TRT World (404), Daily Sabah (200 but 0 entries /
+  malformed), Morocco World News (403), Ahram Online (403), L'Orient-Le
+  Jour (404) — leaving Iranian_axis, Gulf, and Turkish with zero working
+  sources. 403s read as bot/WAF blocking (out of scope to defeat, per this
+  project's public-sources-only stance, same treatment as the earlier
+  Times of Israel drop); 404s mean the guessed RSS path is wrong, not
+  necessarily that the outlet has no feed at all.
+- Run #2 (Google News `site:` proxy for those 3 empty perspectives, same
+  workaround already used for Reuters/AP): all 7 candidates resolved -
+  Al Mayadeen, Al-Manar, Al Arabiya, Arab News, The National, TRT World,
+  Daily Sabah, all now verified=True via the proxy URL. Every perspective
+  has at least one working source as of this pass.
+- CONFIRMED (verified=True, 19 total): every active entry below.
 - REMOVED earlier passes (not re-tested here, kept commented out further
-  below): Times of Israel, i24NEWS, Tehran Times, Press TV, Tasnim News
-  Agency, Mehr News Agency, IRNA — see git history / README for why each
-  was dropped.
+  below, direct-feed attempts also kept commented out per outlet as a
+  record of what was tried first): Times of Israel, i24NEWS, Tehran Times,
+  Press TV, Tasnim News Agency, Mehr News Agency, IRNA, and the 10 direct
+  feeds from run #1 above — see git history / README for why each was
+  dropped.
 
-⚠️ Three perspectives currently have ZERO working sources as a result:
-Iranian_axis, Gulf, Turkish. See README's Sources section for the
-discussion of what to do about this.
+Caveat carried over from the Reuters/AP precedent: every "(via Google
+News)" entry is Google's aggregation/snippet of the outlet's articles, not
+the outlet's own RSS - shorter summaries, Google's framing choice on the
+excerpt rather than the outlet's own dek. This is now most of the file
+(9 of 19 active sources), which is worth knowing when reading disinfo/tone
+signals derived from these summaries specifically.
 
 Re-run this workflow (Actions tab → "Verify RSS Sources" → Run workflow,
 or `python verify_sources.py` on any machine with real network access) any
@@ -130,7 +137,7 @@ SOURCES = [
     },
 
     # =========================================================================
-    # Iranian / axis — ⚠️ ZERO working sources, see README
+    # Iranian / axis
     # =========================================================================
     # Deliberately NOT Iranian-domestic media: Press TV, Tasnim News Agency,
     # Mehr News Agency, and IRNA were all tried across earlier passes and
@@ -168,28 +175,28 @@ SOURCES = [
     #     "language": "en",
     #     "verified": False,  # HTTP 404, 0 entries, bozo=1 (GH Actions run #1) - wrong/dead path
     # },
-    # TESTING (run #2): same Google News site: proxy workaround already
-    # confirmed reliable for Reuters/AP - both direct feeds above are
-    # blocked/wrong-path, so trying the aggregator route instead of hunting
-    # for a correct native URL. Same caveat as Reuters/AP: this is Google's
-    # snippet of the outlet's articles, not the outlet's own RSS dek.
+    # Same Google News site: proxy workaround already confirmed reliable
+    # for Reuters/AP - both direct feeds above are blocked/wrong-path, so
+    # this uses the aggregator route instead of a correct native URL. Same
+    # caveat as Reuters/AP: this is Google's snippet of the outlet's
+    # articles, not the outlet's own RSS dek.
     {
         "name": "Al Mayadeen (via Google News)",
         "rss_url": "https://news.google.com/rss/search?q=when:1d+site:almayadeen.net&hl=en-US&gl=US&ceid=US:en",
         "perspective": "Iranian_axis",
         "language": "en",
-        "verified": None,
+        "verified": True,  # HTTP 200, 78 entries (GH Actions run #2)
     },
     {
         "name": "Al-Manar (via Google News)",
         "rss_url": "https://news.google.com/rss/search?q=when:1d+site:almanar.com.lb&hl=en-US&gl=US&ceid=US:en",
         "perspective": "Iranian_axis",
         "language": "en",
-        "verified": None,
+        "verified": True,  # HTTP 200, 7 entries (GH Actions run #2)
     },
 
     # =========================================================================
-    # Gulf (anti-Iran axis) — ⚠️ ZERO working sources, see README
+    # Gulf (anti-Iran axis)
     # =========================================================================
     # {
     #     "name": "Al Arabiya English",
@@ -213,20 +220,20 @@ SOURCES = [
     #     "paywall": True,
     #     "verified": False,  # HTTP 404, 0 entries, bozo=1 (GH Actions run #1) - wrong/dead path
     # },
-    # TESTING (run #2): Google News site: proxy for the same three outlets.
+    # Google News site: proxy for the same three outlets - all confirmed.
     {
         "name": "Al Arabiya (via Google News)",
         "rss_url": "https://news.google.com/rss/search?q=when:1d+site:alarabiya.net&hl=en-US&gl=US&ceid=US:en",
         "perspective": "Gulf",
         "language": "en",
-        "verified": None,
+        "verified": True,  # HTTP 200, 100 entries (GH Actions run #2)
     },
     {
         "name": "Arab News (via Google News)",
         "rss_url": "https://news.google.com/rss/search?q=when:1d+site:arabnews.com&hl=en-US&gl=US&ceid=US:en",
         "perspective": "Gulf",
         "language": "en",
-        "verified": None,
+        "verified": True,  # HTTP 200, 100 entries (GH Actions run #2)
     },
     {
         "name": "The National (via Google News)",
@@ -234,7 +241,7 @@ SOURCES = [
         "perspective": "Gulf",
         "language": "en",
         "paywall": True,
-        "verified": None,
+        "verified": True,  # HTTP 200, 58 entries (GH Actions run #2)
     },
 
     # =========================================================================
@@ -252,7 +259,7 @@ SOURCES = [
     },
 
     # =========================================================================
-    # Turkish — ⚠️ ZERO working sources, see README
+    # Turkish
     # =========================================================================
     # {
     #     "name": "TRT World",
@@ -271,20 +278,20 @@ SOURCES = [
     #     # historically been per-category with numeric IDs
     #     # (dailysabah.com/rssFeed/<id>) - this generic path isn't it.
     # },
-    # TESTING (run #2): Google News site: proxy for the same two outlets.
+    # Google News site: proxy for the same two outlets - both confirmed.
     {
         "name": "TRT World (via Google News)",
         "rss_url": "https://news.google.com/rss/search?q=when:1d+site:trtworld.com&hl=en-US&gl=US&ceid=US:en",
         "perspective": "Turkish",
         "language": "en",
-        "verified": None,
+        "verified": True,  # HTTP 200, 100 entries (GH Actions run #2)
     },
     {
         "name": "Daily Sabah (via Google News)",
         "rss_url": "https://news.google.com/rss/search?q=when:1d+site:dailysabah.com&hl=en-US&gl=US&ceid=US:en",
         "perspective": "Turkish",
         "language": "en",
-        "verified": None,
+        "verified": True,  # HTTP 200, 67 entries (GH Actions run #2)
     },
 
     # =========================================================================

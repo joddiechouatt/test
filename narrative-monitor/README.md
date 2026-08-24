@@ -134,46 +134,46 @@ not deleted, `None` = not yet tested).
 (GitHub Actions runners have normal internet access — this exists so
 verification doesn't depend on anyone having a local machine at all; run
 it from the repo's Actions tab, "Verify RSS Sources" → *Run workflow*, from
-a phone or anywhere else). Run #1 (2026-08-24) result: **12/22 resolved,
-10/22 failed**:
+a phone or anywhere else). Two runs (2026-08-24):
 
-| Perspective | Candidates tested | Result |
+- **Run #1** (direct outlet feeds): 12/22 resolved, 10 failed — leaving
+  Iranian_axis, Gulf, and Turkish with zero working sources.
+- **Run #2** (Google News `site:` proxy — see below — tried for exactly
+  those 10 failed outlets): all 7 candidates resolved. **Every
+  perspective now has at least one confirmed-working source.**
+
+| Perspective | Working sources | Result |
 |---|---|---|
 | Western | BBC, Reuters (via Google News), AP (via Google News) | **3/3 OK** |
 | Israeli | Arutz Sheva, Jerusalem Post | **2/2 OK** |
-| Iranian_axis | Al Mayadeen English, Al-Manar | **0/2 — ⚠️ empty, see below** |
-| Gulf | Al Arabiya English, Arab News, The National (UAE) | **0/3 — ⚠️ empty, see below** |
+| Iranian_axis | Al Mayadeen (via Google News), Al-Manar (via Google News) | **2/2 OK** |
+| Gulf | Al Arabiya, Arab News, The National (all via Google News) | **3/3 OK** |
 | Qatari | Al Jazeera English | **1/1 OK** |
-| Turkish | TRT World, Daily Sabah | **0/2 — ⚠️ empty, see below** |
-| Maghreb | Jeune Afrique, TSA, Hespress (FR edition), Morocco World News | **3/4 OK** (Morocco World News: HTTP 403) |
-| Egyptian | Ahram Online, Egypt Independent | **1/2 OK** (Ahram Online: HTTP 403) |
-| French | France 24, RFI, L'Orient-Le Jour | **2/3 OK** (L'Orient-Le Jour: HTTP 404) |
+| Turkish | TRT World, Daily Sabah (both via Google News) | **2/2 OK** |
+| Maghreb | Jeune Afrique, TSA, Hespress (FR edition) | **3/4 OK** (Morocco World News: HTTP 403, dropped) |
+| Egyptian | Egypt Independent | **1/2 OK** (Ahram Online: HTTP 403, dropped) |
+| French | France 24, RFI | **2/3 OK** (L'Orient-Le Jour: HTTP 404, dropped) |
 
-Failure detail, exactly as reported by the run: Al Mayadeen (403), Al-Manar
+**19 of 22 tested sources are active; all 19 are `verified: True`.** The 3
+dropped (Morocco World News, Ahram Online, L'Orient-Le Jour) failed on
+their direct feed and have no Google News proxy candidate tried yet — a
+natural next step if either perspective needs a second source later.
+
+Run #1's failure detail, exactly as reported: Al Mayadeen (403), Al-Manar
 (404), Al Arabiya (403), Arab News (403), The National (404), TRT World
 (404), Daily Sabah (HTTP 200 but 0 entries — feed reached, empty/malformed),
 Morocco World News (403), Ahram Online (403), L'Orient-Le Jour (404). A 403
 reads as bot/WAF blocking — out of scope to defeat, per this project's
 public-sources-only stance, same treatment as the earlier Times of Israel
 drop. A 404 means the guessed RSS path is wrong, not necessarily that the
-outlet has no feed at all — worth a manual look for the right URL rather
-than assuming the outlet is unreachable.
+outlet has no feed at all.
 
-**⚠️ Three perspectives currently have zero working sources: Iranian_axis,
-Gulf, Turkish.** Every candidate tried for each failed. Options, none
-applied yet — this is a decision for the project owner:
-1. Try the same Google News `site:` proxy workaround already used for
-   Reuters/AP (below) against one outlet per empty perspective (e.g.
-   `site:alarabiya.net`, `site:trtworld.com`) — cheap to test, and it's
-   already proven reliable for two sources.
-2. Hunt down the correct RSS path by hand for the 404s (TRT World, Al-Manar,
-   The National) — a wrong guess, not necessarily a dead feed.
-3. Drop these three perspectives from `TOPIC_PERSPECTIVES` for the
-   featured topics until a working source exists, so Iran–USA / Strait of
-   Hormuz / Turkey–Israel don't silently under-represent a viewpoint they
-   claim to cover.
-4. Leave as-is: the perspective stays defined (so a future source slots in
-   with no other code change) but currently contributes nothing.
+**Every "(via Google News)" source is Google's aggregation/snippet of the
+outlet's articles, not the outlet's own RSS** — shorter summaries, and the
+framing is Google's excerpt choice rather than the outlet's own dek (see
+the Reuters/AP note below for where this pattern started). This is now 9
+of the 19 active sources — worth keeping in mind when reading tone/framing
+signals derived from these particular summaries.
 
 **Not every topic pulls from every source.** `sources.py`'s
 `TOPIC_PERSPECTIVES` maps each featured topic to the perspectives actually
@@ -211,24 +211,25 @@ upgrade didn't fix it), Tasnim News Agency and Mehr News Agency (blocking
 access outright, developer-confirmed), and IRNA (reported failing before
 being added here at all) were all tried and dropped. The perspective was
 renamed `Iranian_state` → `Iranian_axis` to match: the pro-Iran narrative
-was meant to be represented instead via accessible Beirut-based
-"resistance axis" media — **Al Mayadeen English** (primary) and
-**Al-Manar** (secondary) — rather than Iranian state broadcasting itself.
-As of the run #1 live test, **both of those failed too** (Al Mayadeen:
-HTTP 403 bot-block; Al-Manar: HTTP 404 wrong/dead path), so this
-perspective currently has **no working source at all**, axis or state —
-see the ⚠️ callout above for next-step options. Tehran Times had been this
-perspective's one confirmed-working domestic source; it's kept in
+is represented instead via accessible Beirut-based "resistance axis"
+media — **Al Mayadeen English** (primary) and **Al-Manar** (secondary) —
+rather than Iranian state broadcasting itself. Both outlets' *direct*
+feeds failed run #1 (Al Mayadeen: HTTP 403 bot-block; Al-Manar: HTTP 404
+wrong/dead path); run #2 confirmed both resolve via the Google News proxy
+instead, so this perspective is covered again, just via the aggregator
+route rather than either outlet's own feed. Tehran Times had been this
+perspective's one confirmed-working *domestic* source; it's kept in
 `sources.py`, commented out, in case excluding it turns out to be the
 wrong call.
 
 **Verified status overall** (see `sources.py`'s file-level docstring and
-each entry's `verified` field for the full breakdown): **12 of the 22
-tested sources are confirmed working** on a real network (GitHub Actions
-run #1, 2026-08-24) — see the table above for the per-perspective split.
-The other 10 are commented out in `sources.py` with the exact failure
-recorded inline, not deleted, in case a fixed URL or a Google-News-proxy
-workaround (see below) brings one back later.
+each entry's `verified` field for the full breakdown): **19 of the 22
+tested sources are confirmed working** on a real network (GitHub Actions,
+2026-08-24 — 12 direct feeds in run #1, 7 more via Google News proxy in
+run #2) — see the table above for the per-perspective split. The other 3
+are commented out in `sources.py` with the exact failure recorded inline,
+not deleted, in case a fixed URL or a Google-News-proxy candidate brings
+one of them back later too.
 
 Al Jazeera fails from **inside Israel specifically** — blocked at the
 ISP/carrier level there by law (2024), confirmed by two different
