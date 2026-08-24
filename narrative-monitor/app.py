@@ -302,7 +302,7 @@ def render_header():
     st.markdown(
         """
         <div class="app-header">
-          <div class="brand"><p font-style:italic>MENA</p> Narrative <span>Monitoring</span></div>
+          <div class="brand"><em>MENA</em> Narrative <span>Monitoring</span></div>
           <div class="tag">How different media frame the same geopolitical events — with disinformation signals</div>
         </div>
         """,
