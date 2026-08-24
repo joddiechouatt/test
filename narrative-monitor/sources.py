@@ -168,6 +168,25 @@ SOURCES = [
     #     "language": "en",
     #     "verified": False,  # HTTP 404, 0 entries, bozo=1 (GH Actions run #1) - wrong/dead path
     # },
+    # TESTING (run #2): same Google News site: proxy workaround already
+    # confirmed reliable for Reuters/AP - both direct feeds above are
+    # blocked/wrong-path, so trying the aggregator route instead of hunting
+    # for a correct native URL. Same caveat as Reuters/AP: this is Google's
+    # snippet of the outlet's articles, not the outlet's own RSS dek.
+    {
+        "name": "Al Mayadeen (via Google News)",
+        "rss_url": "https://news.google.com/rss/search?q=when:1d+site:almayadeen.net&hl=en-US&gl=US&ceid=US:en",
+        "perspective": "Iranian_axis",
+        "language": "en",
+        "verified": None,
+    },
+    {
+        "name": "Al-Manar (via Google News)",
+        "rss_url": "https://news.google.com/rss/search?q=when:1d+site:almanar.com.lb&hl=en-US&gl=US&ceid=US:en",
+        "perspective": "Iranian_axis",
+        "language": "en",
+        "verified": None,
+    },
 
     # =========================================================================
     # Gulf (anti-Iran axis) — ⚠️ ZERO working sources, see README
@@ -194,6 +213,29 @@ SOURCES = [
     #     "paywall": True,
     #     "verified": False,  # HTTP 404, 0 entries, bozo=1 (GH Actions run #1) - wrong/dead path
     # },
+    # TESTING (run #2): Google News site: proxy for the same three outlets.
+    {
+        "name": "Al Arabiya (via Google News)",
+        "rss_url": "https://news.google.com/rss/search?q=when:1d+site:alarabiya.net&hl=en-US&gl=US&ceid=US:en",
+        "perspective": "Gulf",
+        "language": "en",
+        "verified": None,
+    },
+    {
+        "name": "Arab News (via Google News)",
+        "rss_url": "https://news.google.com/rss/search?q=when:1d+site:arabnews.com&hl=en-US&gl=US&ceid=US:en",
+        "perspective": "Gulf",
+        "language": "en",
+        "verified": None,
+    },
+    {
+        "name": "The National (via Google News)",
+        "rss_url": "https://news.google.com/rss/search?q=when:1d+site:thenationalnews.com&hl=en-US&gl=US&ceid=US:en",
+        "perspective": "Gulf",
+        "language": "en",
+        "paywall": True,
+        "verified": None,
+    },
 
     # =========================================================================
     # Qatari / pan-Arab
@@ -229,6 +271,21 @@ SOURCES = [
     #     # historically been per-category with numeric IDs
     #     # (dailysabah.com/rssFeed/<id>) - this generic path isn't it.
     # },
+    # TESTING (run #2): Google News site: proxy for the same two outlets.
+    {
+        "name": "TRT World (via Google News)",
+        "rss_url": "https://news.google.com/rss/search?q=when:1d+site:trtworld.com&hl=en-US&gl=US&ceid=US:en",
+        "perspective": "Turkish",
+        "language": "en",
+        "verified": None,
+    },
+    {
+        "name": "Daily Sabah (via Google News)",
+        "rss_url": "https://news.google.com/rss/search?q=when:1d+site:dailysabah.com&hl=en-US&gl=US&ceid=US:en",
+        "perspective": "Turkish",
+        "language": "en",
+        "verified": None,
+    },
 
     # =========================================================================
     # North Africa / Maghreb (French-language editions used throughout)
