@@ -302,7 +302,7 @@ def render_header():
     st.markdown(
         """
         <div class="app-header">
-          <div class="brand">Narrative <span>Monitoring</span></div>
+          <div class="brand"><p font-style:italic>MENA</p> Narrative <span>Monitoring</span></div>
           <div class="tag">How different media frame the same geopolitical events — with disinformation signals</div>
         </div>
         """,
@@ -449,8 +449,6 @@ if "live_mode_request_count" not in st.session_state:
     st.session_state.live_mode_request_count = 0
 
 # --- Search card: featured (pre-computed) topic chips + free-text live-mode entry ---
-st.markdown('<div class="searchcard">', unsafe_allow_html=True)
-
 st.markdown('<div class="picklabel">Pick a proposed topic</div>', unsafe_allow_html=True)
 featured = st.pills(
     "Featured topics",
@@ -478,12 +476,12 @@ with button_col:
 if remaining <= 0:
     st.markdown(
         f'<div class="hint">Live-mode limit reached ({LIVE_MODE_REQUEST_CAP} requests this session) — '
-        "reload the page to reset. Featured topics above still work.</div>",
+        "reload the page to reset.</div>",
         unsafe_allow_html=True,
     )
 else:
     st.markdown(
-        f'<div class="hint">Pick a featured topic for an instant, pre-computed view — or search any MENA '
+        f'<div class="hint">Pick a featured topic or search any MENA '
         f"topic to build a fresh live analysis ({remaining}/{LIVE_MODE_REQUEST_CAP} requests left this "
         "session).</div>",
         unsafe_allow_html=True,
