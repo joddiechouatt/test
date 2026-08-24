@@ -82,6 +82,12 @@ CSS = """
 
 .searchcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:4px}
 .hint{color:var(--mut);font-size:12px;margin-top:10px;font-style:italic}
+.picklabel{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:9px}
+.orsep{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:1px}
+.orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--line)}
+.topictitle{display:flex;align-items:baseline;gap:10px;margin:26px 0 4px;flex-wrap:wrap}
+.topictitle h2{font-size:22px;margin:0;color:var(--ink)}
+.tt-tag{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--amber);background:rgba(224,164,88,.12);border:1px solid var(--amber);border-radius:999px;padding:3px 10px}
 
 .fgroup h4{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin:18px 0 6px}
 
@@ -407,20 +413,10 @@ if "active_payload" not in st.session_state:
 if "live_mode_request_count" not in st.session_state:
     st.session_state.live_mode_request_count = 0
 
-# --- Search card: live-mode entry point + featured (pre-computed) topic chips ---
+# --- Search card: featured (pre-computed) topic chips + free-text live-mode entry ---
 st.markdown('<div class="searchcard">', unsafe_allow_html=True)
-search_col, button_col = st.columns([5, 1])
-with search_col:
-    live_topic_input = st.text_input(
-        "Search",
-        placeholder="Search any geopolitical topic… e.g. Taiwan Strait tensions",
-        label_visibility="collapsed",
-        key="live_topic_input",
-    )
-with button_col:
-    remaining = LIVE_MODE_REQUEST_CAP - st.session_state.live_mode_request_count
-    analyze_clicked = st.button("Analyze", disabled=(remaining <= 0), use_container_width=True)
 
+st.markdown('<div class="picklabel">Pick a proposed topic</div>', unsafe_allow_html=True)
 featured = st.pills(
     "Featured topics",
     topic_labels,
@@ -430,6 +426,20 @@ featured = st.pills(
     key="featured_topic_pill",
 )
 
+st.markdown('<div class="orsep"><span>or</span></div>', unsafe_allow_html=True)
+
+search_col, button_col = st.columns([5, 1])
+with search_col:
+    live_topic_input = st.text_input(
+        "Search",
+        placeholder="Search any MENA topic",
+        label_visibility="collapsed",
+        key="live_topic_input",
+    )
+with button_col:
+    remaining = LIVE_MODE_REQUEST_CAP - st.session_state.live_mode_request_count
+    analyze_clicked = st.button("Analyze", disabled=(remaining <= 0), use_container_width=True)
+
 if remaining <= 0:
     st.markdown(
         f'<div class="hint">Live-mode limit reached ({LIVE_MODE_REQUEST_CAP} requests this session) — '
@@ -438,8 +448,9 @@ if remaining <= 0:
     )
 else:
     st.markdown(
-        f'<div class="hint">Pick a featured topic for an instant, pre-computed view — or search any topic '
-        f"to build a fresh live analysis ({remaining}/{LIVE_MODE_REQUEST_CAP} requests left this session).</div>",
+        f'<div class="hint">Pick a featured topic for an instant, pre-computed view — or search any MENA '
+        f"topic to build a fresh live analysis ({remaining}/{LIVE_MODE_REQUEST_CAP} requests left this "
+        "session).</div>",
         unsafe_allow_html=True,
     )
 st.markdown("</div>", unsafe_allow_html=True)
@@ -473,6 +484,15 @@ try:
     updated_ago = humanize_delta(pd.Timestamp(generated_dt))
 except (ValueError, AttributeError):
     updated_ago = ""
+
+# --- Active-topic title: confirms what's being shown, before any results ---
+is_featured_topic = st.session_state.active_label in topic_labels
+topic_tag = "Featured topic" if is_featured_topic else "Live analysis"
+st.markdown(
+    f'<div class="topictitle"><span class="tt-tag">{topic_tag}</span>'
+    f'<h2>{html.escape(st.session_state.active_label)}</h2></div>',
+    unsafe_allow_html=True,
+)
 
 df = articles_to_df(payload)
 df = df[df["relevance_score"] >= RELEVANCE_FLOOR].copy() if not df.empty else df
