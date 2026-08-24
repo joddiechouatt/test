@@ -28,7 +28,6 @@ import pandas as pd
 import streamlit as st
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-DEFAULT_TOPIC_SLUG = "iran-usa"
 RELEVANCE_FLOOR = 3
 LIVE_MODE_REQUEST_CAP = 3  # per browser session
 COVERAGE_SIMILARITY_THRESHOLD = 0.25  # title-token Jaccard similarity
@@ -85,6 +84,9 @@ CSS = """
 .picklabel{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:9px}
 .orsep{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:1px}
 .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--line)}
+.globespin{display:flex;align-items:center;gap:10px;margin-top:14px;color:var(--ice);font-size:13px}
+.globespin .globe-icon{display:inline-block;font-size:22px;line-height:1;animation:globe-rotate 1.6s linear infinite}
+@keyframes globe-rotate{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
 .topictitle{display:flex;align-items:baseline;gap:10px;margin:26px 0 4px;flex-wrap:wrap}
 .topictitle h2{font-size:22px;margin:0;color:var(--ink)}
 .tt-tag{font-size:10.5px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:var(--amber);background:rgba(224,164,88,.12);border:1px solid var(--amber);border-radius:999px;padding:3px 10px}
@@ -404,12 +406,14 @@ if not topics:
     st.stop()
 
 topic_labels = list(topics.keys())
-default_topic_label = next((label for label in topic_labels if DEFAULT_TOPIC_SLUG in topics[label]), topic_labels[0])
 
+# Nothing is pre-selected on landing: only the search card (chips + search
+# bar) shows until the visitor picks a featured topic or launches a live
+# search. active_label/active_payload stay None until then.
 if "active_label" not in st.session_state:
-    st.session_state.active_label = default_topic_label
+    st.session_state.active_label = None
 if "active_payload" not in st.session_state:
-    st.session_state.active_payload = load_topic_data(topics[default_topic_label])
+    st.session_state.active_payload = None
 if "live_mode_request_count" not in st.session_state:
     st.session_state.live_mode_request_count = 0
 
@@ -469,13 +473,28 @@ if analyze_clicked and live_topic_input.strip():
         )
     else:
         st.session_state.live_mode_request_count += 1
-        with st.spinner(f"Collecting and analyzing articles about {live_topic_input!r}..."):
-            try:
-                live_payload = run_live_pipeline(live_topic_input.strip())
-                st.session_state.active_label = live_payload["topic"]
-                st.session_state.active_payload = live_payload
-            except Exception as exc:  # noqa: BLE001 - surface a friendly error, don't crash the app
-                st.error(f"Live analysis failed: {exc}")
+        # Custom spinner (a rotating-globe emoji via CSS animation) instead of
+        # st.spinner's default icon - st.empty() placeholder so it's cleanly
+        # removed once the pipeline finishes, one way or the other.
+        spinner_placeholder = st.empty()
+        spinner_placeholder.markdown(
+            f'<div class="globespin"><span class="globe-icon">🌍</span> '
+            f"Collecting and analyzing articles about &ldquo;{html.escape(live_topic_input.strip())}&rdquo;...</div>",
+            unsafe_allow_html=True,
+        )
+        try:
+            live_payload = run_live_pipeline(live_topic_input.strip())
+            st.session_state.active_label = live_payload["topic"]
+            st.session_state.active_payload = live_payload
+        except Exception as exc:  # noqa: BLE001 - surface a friendly error, don't crash the app
+            st.error(f"Live analysis failed: {exc}")
+        finally:
+            spinner_placeholder.empty()
+
+# Nothing selected yet (no featured topic picked, no live search run) - show
+# only the search card above and stop here, per the "blank landing" request.
+if st.session_state.active_payload is None:
+    st.stop()
 
 payload = st.session_state.active_payload
 generated_at = payload.get("generated_at", "unknown")
