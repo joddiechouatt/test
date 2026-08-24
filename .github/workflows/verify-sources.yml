@@ -1,0 +1,40 @@
+name: Verify RSS Sources
+
+on:
+  workflow_dispatch: {}
+  push:
+    branches:
+      - claude/narrative-analysis-dashboard-c43a9x
+    paths:
+      - narrative-monitor/sources.py
+      - narrative-monitor/verify_sources.py
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: narrative-monitor
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install feedparser requests
+
+      - name: Run verify_sources.py
+        run: |
+          set +e
+          python verify_sources.py > /tmp/verify_output.txt 2>&1
+          code=$?
+          {
+            echo "## RSS source verification results"
+            echo '```'
+            cat /tmp/verify_output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/verify_output.txt
+          exit $code
