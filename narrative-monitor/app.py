@@ -104,8 +104,24 @@ CSS = (
 .stApp, .stApp p, .stApp span, .stApp label{color:var(--ink);}
 [data-testid="stMarkdownContainer"] p{color:var(--ink);}
 
-.app-header{padding:6px 0 18px;border-bottom:1px solid var(--line);margin-bottom:22px}
-.brand{font-size:22px;font-weight:700;letter-spacing:.5px}
+.app-header{padding:6px 0 18px;border-bottom:1px solid var(--line);margin-bottom:22px;overflow:visible}
+/* The "MENA" title is <em> (italic) inside a font-weight:700 block - if the
+   loaded font has no true italic/bold-italic face, WebKit synthesizes one
+   (skews the glyph outlines), and stacking that with synthesized bold at
+   22px is a known source of a sheared/flat-cut top edge on iOS Safari
+   specifically. font-synthesis:none tells the browser to skip that fake
+   generation and fall back to the font's real style instead - a no-op
+   wherever the real bold-italic face exists, so it can't make rendering
+   worse, unlike pinning an explicit font-family (tried first; made things
+   visibly worse in local testing since this headless Linux box has none of
+   a macOS/Windows system stack's fonts and fell through to a worse
+   fallback than Streamlit's own font already was). line-height/overflow
+   also made explicit rather than left to the font's own metrics, in case
+   the line box itself wasn't leaving headroom. */
+.brand{
+  font-size:22px;font-weight:700;letter-spacing:.5px;line-height:1.4;
+  overflow:visible;font-synthesis:none;
+}
 .brand span{color:var(--amber)}
 .tag{color:var(--mut);font-size:13px;margin-top:2px}
 
@@ -117,6 +133,39 @@ CSS = (
    visible empty gray bar above the actual (unstyled, floating)
    content instead of one bordered card wrapping everything. */
 .st-key-searchcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:4px}
+/* The search box had no explicit styling of its own - it only ever looked
+   like a box because it used to sit directly on the page background
+   (--bg), which was visibly darker than its own native input background
+   (secondaryBackgroundColor). Now that it's properly nested inside
+   .st-key-searchcard (--panel, the *same* secondaryBackgroundColor). Both
+   surfaces are the same color and Streamlit's own default input border
+   isn't strong enough on its own to read as a box - needs an explicit
+   border/background here the same way st.pills' buttons are restyled
+   above, rather than relying on an accidental color mismatch. */
+/* The box's actual paint target differs by Streamlit version - older
+   ones build text_input on BaseWeb ([data-baseweb="input"] wrapper),
+   current ones on react-aria (stTextInputRootElement testid); the bare
+   <input>/stTextInputField is transparent/borderless by design in both,
+   letting the wrapper show through. Both selector forms are listed since
+   local testing (this pip install) and the deployed app turned out to be
+   on different Streamlit versions with different DOM here. */
+[data-testid="stTextInputRootElement"],
+[data-testid="stTextInput"] [data-baseweb="input"]{
+  background:var(--bg) !important;
+  border:1px solid var(--line) !important;
+  border-radius:8px !important;
+  box-shadow:none !important;
+}
+[data-testid="stTextInputRootElement"]:focus-within,
+[data-testid="stTextInput"] [data-baseweb="input"]:focus-within{
+  border-color:var(--amber) !important;
+}
+[data-testid="stTextInputField"],
+[data-testid="stTextInput"] input{
+  background:transparent !important;
+  color:var(--ink) !important;
+  box-shadow:none !important;
+}
 .hint{color:var(--mut);font-size:12px;margin-top:10px;font-style:italic}
 /* Only the "Pick a topic" label + the chip row are centered - the search
    bar/button row below stays left-aligned as before, per request. */
