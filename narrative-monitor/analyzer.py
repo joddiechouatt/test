@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import hashlib
 import json
 import logging
@@ -17,7 +18,9 @@ CACHE_DIR = os.path.join(os.path.dirname(__file__), "data", ".cache")
 
 MAX_RETRIES = 3
 RETRY_SLEEP_BASE = 2.0  # seconds, doubles each retry
-BETWEEN_CALLS_SLEEP = 0.3  # light rate-limit courtesy delay
+MAX_WORKERS = 5  # concurrent LLM calls for cache-miss articles - network-bound
+                  # work parallelizes well; kept modest to stay clear of
+                  # per-account rate limits rather than maximize throughput
 
 SYSTEM_PROMPT = """You are a media analyst. Given a news article's title and summary, \
 analyze how it frames the story. Return STRICT JSON only, no markdown fences, no \
@@ -165,35 +168,77 @@ def _analyze_one(client, article: dict, model: str) -> dict:
     return result
 
 
-def analyze_articles(articles: list[dict], model: str = MODEL, use_cache: bool = True) -> list[dict]:
+def analyze_articles(
+    articles: list[dict],
+    model: str = MODEL,
+    use_cache: bool = True,
+    progress_callback=None,
+) -> list[dict]:
     """Run one LLM analysis call per article and merge the result into each dict.
+
+    Cache hits are resolved immediately on the calling thread; cache misses
+    are analyzed concurrently (MAX_WORKERS at a time) via a thread pool -
+    these are network-bound LLM calls, so threading cuts real wall-clock time
+    substantially for topics with many articles, instead of paying for each
+    one sequentially. Original article order is preserved in the output
+    regardless of completion order.
 
     Uses a disk cache (data/.cache/<hash>.json) keyed by link+title so re-runs
     over unchanged articles don't repay the LLM cost. A single bad/unparseable
     article never crashes the batch - it's flagged with analysis_error instead.
+
+    progress_callback(done, total), if given, is called once per article as
+    it completes (cache hit or freshly analyzed). Always called from the
+    calling thread - never from a worker - so it's safe to drive UI updates
+    with (e.g. a Streamlit placeholder), even though analysis itself runs
+    across multiple threads.
     """
     client = get_anthropic_client()
-    analyzed = []
+    total = len(articles)
+    results: list[dict | None] = [None] * total
+    done = 0
 
+    def _report():
+        nonlocal done
+        done += 1
+        if progress_callback:
+            progress_callback(done, total)
+
+    to_fetch = []
     for i, article in enumerate(articles):
         key = _cache_key(article)
         cached = _load_from_cache(key) if use_cache else None
-
         if cached is not None:
-            analysis = cached
-            logger.info("analyzer: [%d/%d] cache hit: %s", i + 1, len(articles), article.get("title", "")[:60])
+            merged = dict(article)
+            merged.update(cached)
+            results[i] = merged
+            logger.info("analyzer: [%d/%d] cache hit: %s", i + 1, total, article.get("title", "")[:60])
+            _report()
         else:
-            analysis = _analyze_one(client, article, model)
-            if use_cache and analysis.get("analysis_error") is None:
-                _save_to_cache(key, analysis)
-            logger.info("analyzer: [%d/%d] analyzed: %s", i + 1, len(articles), article.get("title", "")[:60])
-            time.sleep(BETWEEN_CALLS_SLEEP)
+            to_fetch.append((i, article, key))
 
-        merged = dict(article)
-        merged.update(analysis)
-        analyzed.append(merged)
+    if to_fetch:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(to_fetch))) as pool:
+            future_map = {
+                pool.submit(_analyze_one, client, article, model): (i, article, key)
+                for i, article, key in to_fetch
+            }
+            for future in concurrent.futures.as_completed(future_map):
+                i, article, key = future_map[future]
+                try:
+                    analysis = future.result()
+                except Exception as exc:  # noqa: BLE001 - never crash the batch
+                    analysis = dict(_DEFAULT_ANALYSIS)
+                    analysis["analysis_error"] = str(exc)
+                if use_cache and analysis.get("analysis_error") is None:
+                    _save_to_cache(key, analysis)
+                merged = dict(article)
+                merged.update(analysis)
+                results[i] = merged
+                logger.info("analyzer: [%d/%d] analyzed: %s", done + 1, total, article.get("title", "")[:60])
+                _report()
 
-    return analyzed
+    return results
 
 
 if __name__ == "__main__":

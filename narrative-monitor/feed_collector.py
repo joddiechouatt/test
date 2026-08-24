@@ -8,6 +8,7 @@ from html import unescape
 from html.parser import HTMLParser
 
 import feedparser
+import requests
 
 from sources import SOURCES
 
@@ -68,11 +69,23 @@ def _matches(text: str, flat_keywords: dict) -> bool:
 
 
 def _fetch_one_source(source: dict):
-    """Fetch and parse a single RSS source. Never raises - returns [] on failure."""
+    """Fetch and parse a single RSS source. Never raises - returns [] on failure.
+
+    Fetches via `requests` with an explicit REQUEST_TIMEOUT rather than
+    handing the URL straight to feedparser.parse(): feedparser's own
+    urllib-based fetcher has no timeout at all, so one dead/slow source can
+    hang the whole (sequential) collection loop far past REQUEST_TIMEOUT -
+    observed in production as a multi-minute stall on a single source
+    (Errno 110 connection timeout) before the loop ever reached the next
+    one. This matches verify_sources.py's proven fetch approach.
+    """
     name = source["name"]
     url = source["rss_url"]
     try:
-        parsed = feedparser.parse(url, request_headers={"User-Agent": USER_AGENT})
+        response = requests.get(
+            url, headers={"User-Agent": USER_AGENT}, timeout=REQUEST_TIMEOUT
+        )
+        parsed = feedparser.parse(response.content)
         if parsed.bozo and not parsed.entries:
             raise parsed.bozo_exception or RuntimeError("feedparser reported bozo with no entries")
         return parsed.entries
@@ -81,13 +94,22 @@ def _fetch_one_source(source: dict):
         return []
 
 
-def collect_articles(keywords: dict, sources: list | None = None, delay: float = 0.0) -> list[dict]:
+def collect_articles(
+    keywords: dict,
+    sources: list | None = None,
+    delay: float = 0.0,
+    progress_callback=None,
+) -> list[dict]:
     """Fetch every source, filter by keyword match, normalize, and dedupe.
 
     Args:
         keywords: taxonomy from keyword_generator.generate_keywords().
         sources: override the source list (mainly for testing); defaults to SOURCES.
         delay: optional seconds to sleep between source fetches, to be polite.
+        progress_callback: optional callable(done, total, source_name), called
+            after each source is processed (success or failure) - collection is
+            sequential, so this always fires on the calling thread and is safe
+            to drive a UI with.
 
     Returns:
         List of normalized article dicts:
@@ -99,7 +121,7 @@ def collect_articles(keywords: dict, sources: list | None = None, delay: float =
     collected: list[dict] = []
     seen = set()
 
-    for source in sources:
+    for i, source in enumerate(sources):
         entries = _fetch_one_source(source)
         kept_from_source = 0
 
@@ -140,6 +162,9 @@ def collect_articles(keywords: dict, sources: list | None = None, delay: float =
             len(entries),
             kept_from_source,
         )
+
+        if progress_callback:
+            progress_callback(i + 1, len(sources), source["name"])
 
         if delay:
             time.sleep(delay)

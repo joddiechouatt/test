@@ -39,11 +39,18 @@ topic beyond not having to type it; it isn't free.
    normalizes each entry, and filters to articles matching the keyword
    taxonomy (≥1 strong term, or ≥2 weak terms, across all three languages).
    A source that's down is logged and skipped — it never crashes the run.
+   Every fetch has an explicit timeout (`REQUEST_TIMEOUT`, 15s) so one dead
+   source can't stall the whole (sequential) collection loop.
 3. **`analyzer.py`** — one LLM call per article extracts a structured
    narrative/tone/blame/disinformation-signal analysis as strict JSON, merged
-   back into the article record. Results are cached to disk
+   back into the article record. Cache misses run concurrently (a small
+   thread pool, `MAX_WORKERS`) since these are network-bound calls — cuts
+   real wall-clock time substantially for a topic with many articles, versus
+   paying for each one sequentially. Results are cached to disk
    (`data/.cache/`) so re-running the pipeline never re-pays for an
-   article it already analyzed.
+   article it already analyzed. Both this and `feed_collector.py` accept an
+   optional `progress_callback` so a caller (e.g. `app.py`'s live mode) can
+   show real per-source/per-article progress instead of an opaque wait.
 4. **`run_pipeline.py`** — CLI orchestrator: keyword generation → collection
    → analysis → `data/<topic-slug>.json`. A standalone convenience for
    inspecting a full pipeline run's output on disk (or scripting/cron'ing

@@ -1,8 +1,9 @@
 """Streamlit dashboard for the Multi-Source Narrative Analysis Monitor.
 
-Reads pre-computed data/<topic>.json files (no LLM calls, no exposed cost).
-An optional, clearly-separated "live mode" lets a visitor analyze a custom
-topic on demand, rate-limited per session and cached.
+Every topic - the three featured shortcuts or a free-text search - runs the
+full pipeline live (keyword generation -> RSS collection -> per-article LLM
+analysis), rate-limited per session and cached by topic string. There is no
+pre-computed data shipped in the repo.
 
 Visual design follows a dark-themed mockup provided by the project owner:
 search bar + featured-topic chips, perspective/source filter pills, an
@@ -17,6 +18,7 @@ mockup's markup/CSS closely.
 from __future__ import annotations
 
 import html
+import logging
 import os
 import re
 from collections import Counter
@@ -27,6 +29,14 @@ import streamlit as st
 
 from loading_graph import CSS as LOADING_GRAPH_CSS
 from loading_graph import build_loading_html
+
+# INFO-level logging (feed_collector's per-source "N fetched, M kept" and
+# analyzer's per-article progress) is silent by default - Python's root
+# logger starts at WARNING, so only failures ever reached Streamlit Cloud's
+# logs, with no way to tell a genuinely empty result from an undercounted
+# one. Configured once, here, so production logs carry the same detail as
+# a local `run_pipeline.py -v` run.
+logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 # Featured topics are just pre-picked strings, not pre-computed data - every
 # one of them runs through the exact same live pipeline as a free-text
@@ -384,18 +394,36 @@ def resolve_api_key() -> str | None:
 
 
 @st.cache_data(show_spinner=False)
-def run_live_pipeline(topic: str) -> dict:
+def run_live_pipeline(topic: str, _progress_callback=None) -> dict:
     """Run the full pipeline for a topic - featured or free-text, no
     difference. Cached by topic string so repeated requests for the same
     topic (chip clicked twice, or someone searches a featured topic's exact
-    name by hand) don't re-call the LLM."""
+    name by hand) don't re-call the LLM - only runs this body on a cache
+    miss, so _progress_callback only ever fires when real work is happening.
+
+    _progress_callback (leading underscore: excluded from the cache key, per
+    st.cache_data convention for non-data arguments like callables) is
+    called as (phase: str, done: int, total: int) during both collection
+    and analysis, so the caller can show real progress instead of an
+    opaque wait - see trigger_live_analysis.
+    """
     from analyzer import analyze_articles
     from feed_collector import collect_articles
     from keyword_generator import generate_keywords
 
     keywords = generate_keywords(topic)
-    articles = collect_articles(keywords)
-    analyzed = analyze_articles(articles)
+    articles = collect_articles(
+        keywords,
+        progress_callback=(
+            lambda done, total, name: _progress_callback("collecting", done, total)
+        ) if _progress_callback else None,
+    )
+    analyzed = analyze_articles(
+        articles,
+        progress_callback=(
+            lambda done, total: _progress_callback("analyzing", done, total)
+        ) if _progress_callback else None,
+    )
     return {
         "topic": topic,
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -428,18 +456,34 @@ def trigger_live_analysis(topic: str) -> None:
     st.session_state.live_mode_request_count += 1
     # Custom loading indicator (an animated connection graph - nodes fade in
     # and get linked by lines, like a link-analysis map assembling itself)
-    # instead of st.spinner's default icon. st.empty() placeholder so it's
-    # cleanly removed once the pipeline finishes, one way or the other.
+    # instead of st.spinner's default icon, plus a real progress line below
+    # it fed by run_live_pipeline's progress callback - actual completion
+    # counts, not just a decorative loop, since a topic with many collected
+    # articles can otherwise sit on an opaque wait for tens of seconds.
+    # Both st.empty() placeholders so they're cleanly removed once the
+    # pipeline finishes, one way or the other.
     spinner_placeholder = st.empty()
     spinner_placeholder.markdown(build_loading_html(topic), unsafe_allow_html=True)
+    progress_placeholder = st.empty()
+
+    def _update_progress(phase: str, done: int, total: int) -> None:
+        if total <= 0:
+            return
+        label = "Collecting from source" if phase == "collecting" else "Analyzing article"
+        progress_placeholder.markdown(
+            f'<div class="hint" style="text-align:center">{label} {done}/{total}…</div>',
+            unsafe_allow_html=True,
+        )
+
     try:
-        live_payload = run_live_pipeline(topic)
+        live_payload = run_live_pipeline(topic, _progress_callback=_update_progress)
         st.session_state.active_label = live_payload["topic"]
         st.session_state.active_payload = live_payload
     except Exception as exc:  # noqa: BLE001 - surface a friendly error, don't crash the app
         st.error(f"Live analysis failed: {exc}")
     finally:
         spinner_placeholder.empty()
+        progress_placeholder.empty()
 
 
 def sync_featured_chip() -> None:
