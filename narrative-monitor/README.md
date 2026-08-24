@@ -11,21 +11,14 @@ a claim of ground truth about any outlet's editorial intent. Treat every
 `tone` / `blame_attribution` / `disinfo_score` field as one LLM's read of a
 short title+summary, not a verified fact.
 
-The dashboard ships with three pre-computed, clickable "featured topics"
-(Iran–USA, Turkey–Israel, Strait of Hormuz), each with its own keyword
-taxonomy and analyzed dataset — but the tool is generic: the free-text
-search box lets a visitor run the same pipeline live on any MENA topic,
-auto-generating its own search keyword taxonomy.
-
-> **Sample data notice:** `data/iran-usa.json`, `data/turkey-israel.json`,
-> and `data/strait-of-hormuz.json` in this repo were all generated with
-> **synthetic placeholder data**, not a real pipeline run — the environment
-> this project was built in has no network access to RSS feeds and no
-> `ANTHROPIC_API_KEY` configured, so live collection/analysis could not run.
-> Every article in these files has `"synthetic": true` and a
-> `[SAMPLE DATA]`-prefixed title. Regenerate them for real (see
-> [Running the pipeline](#running-the-pipeline-locally) below) before treating
-> the dashboard's content as genuine.
+Everything the dashboard shows is a live analysis — there is no
+pre-computed/cached dataset shipped in the repo. Three "featured topics"
+(Iran–USA, Turkey–Israel, Strait of Hormuz) sit above the search bar as
+one-click shortcuts, but picking one runs the exact same live pipeline
+(keyword generation → RSS collection → per-article LLM analysis) as typing
+a topic into the free-text search box — same per-session request cap, same
+result caching, same cost. There's nothing "instant" about a featured
+topic beyond not having to type it; it isn't free.
 
 ![Narrative comparison view](docs/screenshot-narrative.png)
 <!-- Screenshot placeholder: narrative comparison tab -->
@@ -52,24 +45,27 @@ auto-generating its own search keyword taxonomy.
    (`data/.cache/`) so re-running the pipeline never re-pays for an
    article it already analyzed.
 4. **`run_pipeline.py`** — CLI orchestrator: keyword generation → collection
-   → analysis → `data/<topic-slug>.json`. This is what you run locally,
-   on your own schedule, to (re)generate a topic's dataset.
-5. **`app.py`** — a Streamlit dashboard that reads the pre-computed
-   `data/*.json` files. No LLM calls happen on page load, so the public
-   dashboard has no exposed per-visitor cost. An optional, clearly-separated
-   "live mode" section lets a visitor try a custom topic, protected by a
-   per-session request cap and result caching.
+   → analysis → `data/<topic-slug>.json`. A standalone convenience for
+   inspecting a full pipeline run's output on disk (or scripting/cron'ing
+   one outside the app); the running dashboard does not read its output.
+5. **`app.py`** — a Streamlit dashboard where every topic, featured or
+   free-text, runs the pipeline live via `trigger_live_analysis()`, guarded
+   by a per-session request cap (`LIVE_MODE_REQUEST_CAP`) and cached by
+   topic string (`st.cache_data`) so repeating the same topic in one
+   session doesn't re-call the LLM.
 
 ## Design rationale
 
-**Pre-computed data, not live-on-every-pageview.** The LLM pipeline
-(`run_pipeline.py`) runs locally, developer-triggered, and its output is
-committed as JSON to `data/`. The public Streamlit app mostly *reads* those
-files. This means the demo can be deployed for free on Streamlit Community
-Cloud with zero exposed LLM cost per visitor — nobody can run up your
-Anthropic bill just by loading the page. It also makes the dashboard fast
-(no network/LLM latency on load) and reproducible (the committed JSON is the
-exact dataset the screenshots were taken from).
+**Everything live, capped and cached rather than pre-computed.** Earlier
+versions of this project shipped pre-computed JSON for a default topic so
+the public dashboard had zero exposed LLM cost. That's no longer how it
+works: every topic, including the three "featured" ones, runs the live
+pipeline on demand. The trade-off is deliberate — `LIVE_MODE_REQUEST_CAP`
+(3 per browser session, in `app.py`) and `st.cache_data` keyed by topic
+string are what keep that bounded rather than unbounded, but a visitor
+loading the deployed app and clicking a featured topic **does** spend a
+real Anthropic API call, unlike the earlier read-only design. Budget for
+that before deploying somewhere with meaningful traffic.
 
 **RSS over scraping.** Every source in `sources.py` is a publicly published
 RSS feed, not a scraped page. RSS is (a) explicitly offered by the
@@ -100,11 +96,13 @@ narrative-monitor/
 ├── feed_collector.py      # keywords + RSS sources -> filtered normalized articles
 ├── analyzer.py            # articles -> LLM analysis -> data/<topic>.json
 ├── run_pipeline.py        # orchestrates the 3 modules end-to-end for a topic
-├── app.py                 # Streamlit dashboard (reads JSON; optional live mode)
+├── app.py                 # Streamlit dashboard - every topic runs live
+├── loading_graph.py       # animated connection-graph loading indicator (pure HTML/CSS)
 ├── sources.py             # list of RSS sources with perspective labels
 ├── verify_sources.py      # standalone script: checks every RSS URL resolves
 ├── utils.py               # shared helpers: slugify, safe_json_parse, LLM client
-├── data/                  # pre-computed analyzed JSON per topic (+ .cache/, gitignored)
+├── data/                  # empty by default; analyzer.py's cache (.cache/, gitignored)
+│                          # and run_pipeline.py's optional CLI output both land here
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -183,15 +181,17 @@ cp .env.example .env   # then fill in ANTHROPIC_API_KEY=sk-ant-...
 # 2. Verify your RSS sources actually resolve from your network
 python verify_sources.py
 
-# 3. Generate (or regenerate) the three featured topics' datasets
-python run_pipeline.py "Iran–USA"
-python run_pipeline.py "Turkey–Israel"
-python run_pipeline.py "Strait of Hormuz"
-# -> writes data/iran-usa.json, data/turkey-israel.json, data/strait-of-hormuz.json,
-#    printing a summary (collected/analyzed/relevant) after each run
-
-# 4. Run the dashboard
+# 3. Run the dashboard - every topic (featured or typed) analyzes live
 streamlit run app.py
+```
+
+`run_pipeline.py` still exists as an optional standalone CLI (keyword
+generation → collection → analysis → `data/<topic-slug>.json`) if you want
+a full run's output sitting on disk to inspect, script, or cron outside the
+app - the running dashboard never reads its output:
+
+```bash
+python run_pipeline.py "Iran–USA"
 ```
 
 Each module is also independently runnable for smoke-testing:
@@ -203,30 +203,31 @@ python analyzer.py                                   # analyzes 3 built-in sampl
 ```
 
 `analyzer.py` caches every successful LLM analysis to `data/.cache/` keyed by
-article link+title, so re-running `run_pipeline.py` for a topic you've
-already processed only pays for genuinely new articles.
+article link+title, so re-running the same article (via `run_pipeline.py`,
+or the same topic surfacing it again in the app) never re-pays for it.
 
 ## Deploying to Streamlit Community Cloud
 
-1. Push this repo to GitHub (make sure `data/*.json` — your pre-computed
-   topic files — are committed; `.env` and `data/.cache/` are gitignored on
-   purpose and should **not** be committed).
+1. Push this repo to GitHub (`.env` and `data/.cache/` are gitignored on
+   purpose and should **not** be committed - there's no `data/*.json` to
+   worry about anymore, everything runs live).
 2. On [share.streamlit.io](https://share.streamlit.io), create a new app
    pointing at this repo, branch, and `app.py` as the entry point.
 3. In the app's **Settings → Secrets**, add:
    ```toml
    ANTHROPIC_API_KEY = "sk-ant-..."
    ```
-   This is only needed for the optional live-mode section — the main
-   dashboard works fine without it, reading only the committed JSON files.
-4. Deploy. The main dashboard has no per-visitor LLM cost; live mode is
-   capped per browser session (`LIVE_MODE_REQUEST_CAP` in `app.py`) and
-   caches results by topic (`st.cache_data`) to bound cost if you do enable
-   it in production.
+   This is now **required**, not optional - every topic, including the
+   three featured ones, calls the LLM. Without it, `app.py` shows a clean
+   "not configured" message instead of crashing, but nothing will actually
+   analyze.
+4. Deploy. `LIVE_MODE_REQUEST_CAP` (`app.py`) caps requests per browser
+   session and `st.cache_data` avoids re-calling the LLM for a topic already
+   analyzed this session, but there is real per-visitor LLM cost now — see
+   *Design rationale* above.
 
-To add a new topic later: run `python run_pipeline.py "<topic>"` locally,
-commit the resulting `data/<slug>.json`, push — the dashboard's topic
-selector picks it up automatically.
+To change the three featured topics: edit `FEATURED_TOPICS` in `app.py` -
+it's just a list of strings, nothing to generate or commit.
 
 ## Notes on the LLM provider
 

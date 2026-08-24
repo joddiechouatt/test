@@ -16,9 +16,7 @@ mockup's markup/CSS closely.
 
 from __future__ import annotations
 
-import glob
 import html
-import json
 import os
 import re
 from collections import Counter
@@ -30,7 +28,11 @@ import streamlit as st
 from loading_graph import CSS as LOADING_GRAPH_CSS
 from loading_graph import build_loading_html
 
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
+# Featured topics are just pre-picked strings, not pre-computed data - every
+# one of them runs through the exact same live pipeline as a free-text
+# search (see trigger_live_analysis below), and counts against the same
+# per-session request cap.
+FEATURED_TOPICS = ["Iran–USA", "Turkey–Israel", "Strait of Hormuz"]
 RELEVANCE_FLOOR = 3
 LIVE_MODE_REQUEST_CAP = 3  # per browser session
 COVERAGE_SIMILARITY_THRESHOLD = 0.25  # title-token Jaccard similarity
@@ -173,29 +175,8 @@ st.markdown(CSS, unsafe_allow_html=True)
 
 
 # ---------------------------------------------------------------------------
-# Data loading
+# Data shaping
 # ---------------------------------------------------------------------------
-
-@st.cache_data
-def list_topics() -> dict:
-    """Return {display_name: file_path} for every data/*.json file."""
-    topics = {}
-    for path in sorted(glob.glob(os.path.join(DATA_DIR, "*.json"))):
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                payload = json.load(f)
-            label = payload.get("topic", os.path.basename(path))
-            topics[label] = path
-        except (json.JSONDecodeError, OSError):
-            continue
-    return topics
-
-
-@st.cache_data
-def load_topic_data(path: str) -> dict:
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
 
 def articles_to_df(payload: dict) -> pd.DataFrame:
     articles = payload.get("articles", [])
@@ -404,8 +385,10 @@ def resolve_api_key() -> str | None:
 
 @st.cache_data(show_spinner=False)
 def run_live_pipeline(topic: str) -> dict:
-    """Run the full pipeline for a custom topic. Cached by topic string so
-    repeated requests for the same topic don't re-call the LLM."""
+    """Run the full pipeline for a topic - featured or free-text, no
+    difference. Cached by topic string so repeated requests for the same
+    topic (chip clicked twice, or someone searches a featured topic's exact
+    name by hand) don't re-call the LLM."""
     from analyzer import analyze_articles
     from feed_collector import collect_articles
     from keyword_generator import generate_keywords
@@ -421,22 +404,81 @@ def run_live_pipeline(topic: str) -> dict:
     }
 
 
+def trigger_live_analysis(topic: str) -> None:
+    """Single entry point for launching a live analysis - used identically
+    by a featured-chip click and a free-text search, so both behave exactly
+    the same way: same per-session cap, same API-key guard, same loading
+    animation, same caching. Everything is live now; there is no
+    pre-computed fallback."""
+    remaining = LIVE_MODE_REQUEST_CAP - st.session_state.live_mode_request_count
+    if remaining <= 0:
+        st.warning(
+            f"Live-mode limit reached ({LIVE_MODE_REQUEST_CAP} requests this session) — "
+            "reload the page to reset."
+        )
+        return
+
+    api_key = resolve_api_key()
+    if not api_key:
+        st.error(
+            "Live mode is not configured: no ANTHROPIC_API_KEY found in environment or st.secrets."
+        )
+        return
+
+    st.session_state.live_mode_request_count += 1
+    # Custom loading indicator (an animated connection graph - nodes fade in
+    # and get linked by lines, like a link-analysis map assembling itself)
+    # instead of st.spinner's default icon. st.empty() placeholder so it's
+    # cleanly removed once the pipeline finishes, one way or the other.
+    spinner_placeholder = st.empty()
+    spinner_placeholder.markdown(build_loading_html(topic), unsafe_allow_html=True)
+    try:
+        live_payload = run_live_pipeline(topic)
+        st.session_state.active_label = live_payload["topic"]
+        st.session_state.active_payload = live_payload
+    except Exception as exc:  # noqa: BLE001 - surface a friendly error, don't crash the app
+        st.error(f"Live analysis failed: {exc}")
+    finally:
+        spinner_placeholder.empty()
+
+
+def sync_featured_chip() -> None:
+    """Keep the featured-topic pill widget's own state in sync with
+    active_label after any live analysis. st.pills already deselects/
+    reselects itself correctly when a chip is the thing that was clicked -
+    this only matters for the other direction: a free-text search must not
+    leave a stale chip looking selected once its results have been replaced.
+
+    Streamlit forbids writing st.session_state[key] for a widget that has
+    already been instantiated *in this run* (the pills widget renders
+    earlier in the script than this is called) - raises
+    StreamlitAPIException. So this defers the write: stash the desired
+    value under a plain (non-widget) key and rerun; apply_pending_chip_sync()
+    consumes it at the very top of the next run, before the pills widget is
+    created, which Streamlit does allow. Only reruns when something
+    actually needs to change."""
+    desired = st.session_state.active_label if st.session_state.active_label in FEATURED_TOPICS else None
+    if st.session_state.get("featured_topic_pill") != desired:
+        st.session_state["_pending_featured_chip"] = desired
+        st.rerun()
+
+
+def apply_pending_chip_sync() -> None:
+    """Consume a pending chip-selection change queued by sync_featured_chip,
+    if any. Must run before the featured-topic st.pills() is instantiated."""
+    if "_pending_featured_chip" in st.session_state:
+        value = st.session_state.pop("_pending_featured_chip")
+        st.session_state["featured_topic_pill"] = value
+        # Keep click-detection (see "_last_seen_chip" below) in sync too, or
+        # this forced value would itself look like a brand-new click next run.
+        st.session_state["_last_seen_chip"] = value
+
+
 # ---------------------------------------------------------------------------
 # Main flow
 # ---------------------------------------------------------------------------
 
 render_header()
-
-topics = list_topics()
-if not topics:
-    st.markdown(
-        '<div class="searchcard">No pre-computed data found in <code>data/</code>. '
-        'Run <code>python run_pipeline.py "&lt;topic&gt;"</code> locally to generate one, then reload.</div>',
-        unsafe_allow_html=True,
-    )
-    st.stop()
-
-topic_labels = list(topics.keys())
 
 # Nothing is pre-selected on landing: only the search card (chips + search
 # bar) shows until the visitor picks a featured topic or launches a live
@@ -448,13 +490,15 @@ if "active_payload" not in st.session_state:
 if "live_mode_request_count" not in st.session_state:
     st.session_state.live_mode_request_count = 0
 
-# --- Search card: featured (pre-computed) topic chips + free-text live-mode entry ---
+# --- Search card: featured-topic chips (live analysis, same as search) + free-text entry ---
+apply_pending_chip_sync()  # must run before the pills widget below is instantiated
+st.markdown('<div class="searchcard">', unsafe_allow_html=True)
 st.markdown('<div class="picklabel">Pick a proposed topic</div>', unsafe_allow_html=True)
 featured = st.pills(
     "Featured topics",
-    topic_labels,
+    FEATURED_TOPICS,
     selection_mode="single",
-    default=st.session_state.active_label if st.session_state.active_label in topic_labels else None,
+    default=st.session_state.active_label if st.session_state.active_label in FEATURED_TOPICS else None,
     label_visibility="collapsed",
     key="featured_topic_pill",
 )
@@ -482,44 +526,38 @@ if remaining <= 0:
 else:
     st.markdown(
         f'<div class="hint">Pick a featured topic or search any MENA '
-        f"topic to build a fresh live analysis ({remaining}/{LIVE_MODE_REQUEST_CAP} requests left this "
-        "session).</div>",
+        f"topic - both run a fresh live analysis ({remaining}/{LIVE_MODE_REQUEST_CAP} requests left "
+        "this session).</div>",
         unsafe_allow_html=True,
     )
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Resolve which dataset is active this run ---
-if featured and featured != st.session_state.active_label:
-    st.session_state.active_label = featured
-    st.session_state.active_payload = load_topic_data(topics[featured])
+# --- React to whichever interaction fired this run ---
+# st.pills persists its selected value across every rerun, not just the one
+# where it was clicked - typing in the search box, for instance, reruns the
+# whole script too. Comparing directly against active_label would re-fire
+# trigger_live_analysis on every such unrelated rerun for as long as a
+# previous attempt failed (no key, rate limit) and never updated
+# active_label. "_last_seen_chip" tracks the raw widget value regardless of
+# whether the analysis it triggered succeeded, so a click is only ever
+# acted on once.
+if "_last_seen_chip" not in st.session_state:
+    st.session_state["_last_seen_chip"] = None
+if featured != st.session_state["_last_seen_chip"]:
+    st.session_state["_last_seen_chip"] = featured
+    if featured:
+        trigger_live_analysis(featured)
 
 if analyze_clicked and live_topic_input.strip():
-    api_key = resolve_api_key()
-    if not api_key:
-        st.error(
-            "Live mode is not configured: no ANTHROPIC_API_KEY found in environment or "
-            "st.secrets. Pick a featured topic above instead - that works without it."
-        )
-    else:
-        st.session_state.live_mode_request_count += 1
-        # Custom loading indicator (an animated connection graph - nodes
-        # fade in and get linked by lines, like a link-analysis map
-        # assembling itself) instead of st.spinner's default icon.
-        # st.empty() placeholder so it's cleanly removed once the pipeline
-        # finishes, one way or the other.
-        spinner_placeholder = st.empty()
-        spinner_placeholder.markdown(
-            build_loading_html(live_topic_input.strip()),
-            unsafe_allow_html=True,
-        )
-        try:
-            live_payload = run_live_pipeline(live_topic_input.strip())
-            st.session_state.active_label = live_payload["topic"]
-            st.session_state.active_payload = live_payload
-        except Exception as exc:  # noqa: BLE001 - surface a friendly error, don't crash the app
-            st.error(f"Live analysis failed: {exc}")
-        finally:
-            spinner_placeholder.empty()
+    label_before = st.session_state.active_label
+    trigger_live_analysis(live_topic_input.strip())
+    # Only the free-text path can leave a *stale* chip selected (a featured
+    # topic's results replaced by a typed search) - sync only here, and
+    # only when the search actually succeeded (active_label really
+    # changed), so a failed attempt (no key, rate-limited) never touches
+    # the chip or clears its own error message via the sync's rerun.
+    if st.session_state.active_label != label_before:
+        sync_featured_chip()
 
 # Nothing selected yet (no featured topic picked, no live search run) - show
 # only the search card above and stop here, per the "blank landing" request.
@@ -535,7 +573,7 @@ except (ValueError, AttributeError):
     updated_ago = ""
 
 # --- Active-topic title: confirms what's being shown, before any results ---
-is_featured_topic = st.session_state.active_label in topic_labels
+is_featured_topic = st.session_state.active_label in FEATURED_TOPICS
 topic_tag = "Featured topic" if is_featured_topic else "Live analysis"
 st.markdown(
     f'<div class="topictitle"><span class="tt-tag">{topic_tag}</span>'
