@@ -91,37 +91,44 @@ CSS = (
   --gulf:#C2A55C; --turkish:#DA7B54; --maghreb:#6FA97A; --egyptian:#8FA6C9;
 }
 .stApp{background:var(--bg);color:var(--ink);}
-/* Scoped to the testid (current Streamlit) and the older .main-prefixed
-   form - deliberately NOT a bare .block-container selector: that matched
-   more than just the page's outer container on the deployed app (Streamlit
-   reuses "block-container" as a generic layout class on nested containers
-   too), which is what clipped the header title and stripped the search
-   input's own box styling in production - a change that hadn't shown up
-   testing locally against a different Streamlit version. */
-.main .block-container, [data-testid="stMainBlockContainer"]{
+/* Back to exactly the one selector this rule had before any of this
+   section's centering changes - confirmed (by the user, on the actual
+   deployed app) that the title wasn't clipped before that work started.
+   Adding [data-testid="stMainBlockContainer"] as a second match target
+   earlier was the one remaining suspect neither of the last two fixes had
+   actually removed - dropped now rather than guessed at again. This
+   means the page-wide max-width/centering that selector was chasing is
+   gone too, but nothing the user actually asked for depended on it: the
+   "Pick a topic" label + chip row are centered via their own scoped CSS
+   below (relative to the search card's own width), not via this rule. */
+.main .block-container{
   max-width:1080px;padding-top:1.5rem;padding-bottom:3rem;
 }
 .stApp, .stApp p, .stApp span, .stApp label{color:var(--ink);}
 [data-testid="stMarkdownContainer"] p{color:var(--ink);}
 
 .app-header{padding:6px 0 18px;border-bottom:1px solid var(--line);margin-bottom:22px;overflow:visible}
-/* The "MENA" title is <em> (italic) inside a font-weight:700 block - if the
-   loaded font has no true italic/bold-italic face, WebKit synthesizes one
-   (skews the glyph outlines), and stacking that with synthesized bold at
-   22px is a known source of a sheared/flat-cut top edge on iOS Safari
-   specifically. font-synthesis:none tells the browser to skip that fake
-   generation and fall back to the font's real style instead - a no-op
-   wherever the real bold-italic face exists, so it can't make rendering
-   worse, unlike pinning an explicit font-family (tried first; made things
-   visibly worse in local testing since this headless Linux box has none of
-   a macOS/Windows system stack's fonts and fell through to a worse
-   fallback than Streamlit's own font already was). line-height/overflow
-   also made explicit rather than left to the font's own metrics, in case
-   the line box itself wasn't leaving headroom. */
+/* Two prior mitigations (font-synthesis:none, an explicit font-family)
+   didn't fix the clipped title on iOS Safari, and the user confirmed it
+   wasn't clipped before this section's centering work started - meaning
+   the actual cause was most likely the .block-container change above
+   (now reverted), not this rule. Kept line-height/overflow/font-synthesis
+   here anyway (harmless either way) and additionally dropped the italic
+   <em> on "MENA" (now a plain .brand-mena span, see the markup) - that
+   was the one remaining variable neither prior attempt had removed, and
+   italic was the specific ingredient in every synthesis-based theory
+   tried so far. -webkit-text-size-adjust guards against a separate, also
+   iOS-specific text-scaling quirk some custom-styled headings hit. */
 .brand{
   font-size:22px;font-weight:700;letter-spacing:.5px;line-height:1.4;
-  overflow:visible;font-synthesis:none;
+  overflow:visible;font-synthesis:none;-webkit-text-size-adjust:100%;
 }
+/* .brand-mena is a <span> (was <em>) so it now also matches ".brand span"
+   below - which is meant for "Monitoring" only - and would otherwise
+   inherit that rule's amber color since a single class has lower
+   specificity than a class+type selector. Pinned back to the normal ink
+   color explicitly, at equal specificity, to undo that. */
+.brand span.brand-mena{font-style:normal;color:var(--ink)}
 .brand span{color:var(--amber)}
 .tag{color:var(--mut);font-size:13px;margin-top:2px}
 
@@ -367,7 +374,7 @@ def render_header():
     st.markdown(
         """
         <div class="app-header">
-          <div class="brand"><em>MENA</em> Narrative <span>Monitoring</span></div>
+          <div class="brand"><span class="brand-mena">MENA</span> Narrative <span>Monitoring</span></div>
           <div class="tag">How different media frame the same geopolitical events — with disinformation signals</div>
         </div>
         """,
