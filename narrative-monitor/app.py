@@ -57,7 +57,11 @@ PERSPECTIVE_STYLE = {
     "Western": {"label": "WESTERN", "var": "--west"},
     "Israeli": {"label": "ISRAELI", "var": "--isr"},
     "Iranian_axis": {"label": "IRANIAN / AXIS", "var": "--iran"},
-    "Arab": {"label": "ARAB", "var": "--arab"},
+    "Gulf": {"label": "GULF", "var": "--gulf"},
+    "Qatari": {"label": "QATARI", "var": "--qatari"},
+    "Turkish": {"label": "TURKISH", "var": "--turkish"},
+    "Maghreb": {"label": "MAGHREB", "var": "--maghreb"},
+    "Egyptian": {"label": "EGYPTIAN", "var": "--egyptian"},
     "French": {"label": "FRENCH", "var": "--fr"},
 }
 DEFAULT_PERSPECTIVE_STYLE = {"label": "OTHER", "var": "--ice"}
@@ -83,7 +87,8 @@ CSS = (
   --bg:#0F1620; --panel:#18222F; --panel2:#1F2C3D; --line:#2A3849;
   --ink:#EAF0F7; --mut:#8A9BB2; --ice:#9FB6D4;
   --amber:#E0A458; --teal:#4FB0A5; --rose:#D08B7A;
-  --west:#5B8DEF; --isr:#4FB0A5; --iran:#D06B6B; --arab:#E0A458; --fr:#B08BD0;
+  --west:#5B8DEF; --isr:#4FB0A5; --iran:#D06B6B; --qatari:#E0A458; --fr:#B08BD0;
+  --gulf:#C2A55C; --turkish:#DA7B54; --maghreb:#6FA97A; --egyptian:#8FA6C9;
 }
 .stApp{background:var(--bg);color:var(--ink);}
 .main .block-container{max-width:1080px;padding-top:1.5rem;padding-bottom:3rem;}
@@ -396,10 +401,12 @@ def resolve_api_key() -> str | None:
 @st.cache_data(show_spinner=False)
 def run_live_pipeline(topic: str, _progress_callback=None) -> dict:
     """Run the full pipeline for a topic - featured or free-text, no
-    difference. Cached by topic string so repeated requests for the same
-    topic (chip clicked twice, or someone searches a featured topic's exact
-    name by hand) don't re-call the LLM - only runs this body on a cache
-    miss, so _progress_callback only ever fires when real work is happening.
+    difference in mechanism, though featured topics pull a curated subset of
+    sources (see sources.get_sources_for_topic) rather than every source.
+    Cached by topic string so repeated requests for the same topic (chip
+    clicked twice, or someone searches a featured topic's exact name by
+    hand) don't re-call the LLM - only runs this body on a cache miss, so
+    _progress_callback only ever fires when real work is happening.
 
     _progress_callback (leading underscore: excluded from the cache key, per
     st.cache_data convention for non-data arguments like callables) is
@@ -410,10 +417,12 @@ def run_live_pipeline(topic: str, _progress_callback=None) -> dict:
     from analyzer import analyze_articles
     from feed_collector import collect_articles
     from keyword_generator import generate_keywords
+    from sources import get_sources_for_topic
 
     keywords = generate_keywords(topic)
     articles = collect_articles(
         keywords,
+        sources=get_sources_for_topic(topic),
         progress_callback=(
             lambda done, total, name: _progress_callback("collecting", done, total)
         ) if _progress_callback else None,
