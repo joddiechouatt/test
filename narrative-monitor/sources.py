@@ -32,52 +32,38 @@ for how an unmapped (free-text/live-search) topic falls back.
 ============================================================================
 VERIFICATION STATUS — read before trusting this list
 ============================================================================
-This file could NOT be live-verified from the build environment for this
-pass - outbound HTTPS to every candidate domain is blocked by that
-sandbox's egress policy (confirmed again this pass on alarabiya.net and
-trtworld.com, both EGRESS_BLOCKED - consistent with every prior check in
-this project's history). Of the ~20 candidate feeds requested for this
-MENA-wide expansion, only the four below have ever been confirmed by
-actually running verify_sources.py on a real network (developer-run,
-earlier passes) - everything else is a best-known-URL guess, graded by
-confidence, with `"verified": None`:
+Live-tested for real via a GitHub Actions run (.github/workflows/
+verify-sources.yml, run #1, 2026-08-24) — GitHub-hosted runners have normal
+internet access, unlike the build sandbox this file was originally drafted
+in (which had every news/RSS domain egress-blocked; the workflow exists
+specifically so this project doesn't depend on a local machine to verify
+sources). Full result: 12/22 resolved, 10/22 failed.
 
-- CONFIRMED (verified=True): BBC World News (general world feed),
-  The Jerusalem Post, Al Jazeera English (works outside Israel; blocked at
-  the ISP/carrier level inside Israel by law - not a dead feed), France 24
-  (general feed).
-- REMOVED (verified=False, confirmed unusable, not listed as active
-  entries): The Times of Israel and i24NEWS (dropped this pass - i24NEWS
-  wasn't in the requested candidate list for this restructure; Times of
-  Israel remains bot/WAF-blocked per earlier passes). Every Iranian-
-  domestic outlet tried: Press TV (SSL CERTIFICATE_VERIFY_FAILED - a
-  genuinely broken/self-issued cert, confirmed from multiple networks
-  including outside Israel and Streamlit Cloud itself), Tasnim News
-  Agency / Mehr News Agency (blocking access outright per developer
-  report), and IRNA (reported failing before being added here at all) -
-  per explicit instruction, none of these are to be used; the Iranian_axis
-  perspective represents this viewpoint via Al Mayadeen / Al-Manar instead.
-  Tehran Times had been this perspective's one CONFIRMED-working domestic
-  source but is excluded per that same instruction - see its entry, kept
-  commented out below, if that call should be revisited.
-- UNVERIFIED (verified=None) — every other entry below, including all of
-  Gulf, Qatari's Al Jazeera is the exception (confirmed), Turkish, Maghreb,
-  Egyptian, and the new French addition (L'Orient-Le Jour). These are
-  best-known URLs from documentation/training knowledge, not independently
-  tested. Several (Al Arabiya, Daily Sabah, Ahram Online, L'Orient-Le Jour
-  especially) are genuinely low-confidence guesses at the RSS path - these
-  outlets' feed conventions aren't well-documented in a way I can vouch
-  for, so a 404 on first try is a real possibility for most of them.
+- CONFIRMED (verified=True, 12): BBC News - World, Reuters (via Google
+  News), AP News (via Google News), Arutz Sheva, The Jerusalem Post,
+  Al Jazeera English, Jeune Afrique, TSA - Tout Sur l'Algerie, Hespress
+  (French edition), Egypt Independent, France 24, RFI.
+- FAILED (verified=False, 10, commented out below with the exact error):
+  Al Mayadeen English (403), Al-Manar (404), Al Arabiya English (403),
+  Arab News (403), The National/UAE (404), TRT World (404), Daily Sabah
+  (200 but 0 entries / malformed), Morocco World News (403), Ahram Online
+  (403), L'Orient-Le Jour (404). 403s read as bot/WAF blocking (out of
+  scope to defeat, per this project's public-sources-only stance, same
+  treatment as the earlier Times of Israel drop); 404s mean the guessed
+  RSS path is wrong, not necessarily that the outlet has no feed at all.
+- REMOVED earlier passes (not re-tested here, kept commented out further
+  below): Times of Israel, i24NEWS, Tehran Times, Press TV, Tasnim News
+  Agency, Mehr News Agency, IRNA — see git history / README for why each
+  was dropped.
 
-Run this locally (not in a network-restricted sandbox) - genuinely
-required before trusting any UNVERIFIED entry below, not just good
-practice, given how many are new this pass:
+⚠️ Three perspectives currently have ZERO working sources as a result:
+Iranian_axis, Gulf, Turkish. See README's Sources section for the
+discussion of what to do about this.
 
-    python verify_sources.py
-
-It updates nothing automatically - after running it, come back and set
-each entry's "verified" field to match, and drop (or comment out, per the
-style already used below) anything confirmed broken.
+Re-run this workflow (Actions tab → "Verify RSS Sources" → Run workflow,
+or `python verify_sources.py` on any machine with real network access) any
+time this list changes, and update the "verified" field + comment/uncomment
+entries to match.
 ============================================================================
 """
 
@@ -90,7 +76,7 @@ SOURCES = [
         "rss_url": "https://feeds.bbci.co.uk/news/world/rss.xml",
         "perspective": "Western",
         "language": "en",
-        "verified": True,  # HTTP 200, 38 entries (developer-run verify_sources.py)
+        "verified": True,  # HTTP 200, 29 entries (GH Actions run #1)
     },
     # Reuters discontinued its public RSS feeds around 2020. No historical
     # URL still works (feeds.reuters.com/..., reutersagency.com/feed/...) -
@@ -106,7 +92,7 @@ SOURCES = [
         "perspective": "Western",
         "language": "en",
         "paywall": True,
-        "verified": None,
+        "verified": True,  # HTTP 200, 100 entries (GH Actions run #1)
     },
     # Associated Press wound down its direct public feeds in the same era -
     # apnews.com has no first-party RSS. Same Google News workaround.
@@ -115,7 +101,7 @@ SOURCES = [
         "rss_url": "https://news.google.com/rss/search?q=when:1d+site:apnews.com&hl=en-US&gl=US&ceid=US:en",
         "perspective": "Western",
         "language": "en",
-        "verified": None,
+        "verified": True,  # HTTP 200, 100 entries (GH Actions run #1)
     },
 
     # =========================================================================
@@ -130,7 +116,7 @@ SOURCES = [
         "rss_url": "https://www.israelnationalnews.com/Rss.aspx",
         "perspective": "Israeli",
         "language": "en",
-        "verified": None,  # medium-low confidence on the URL
+        "verified": True,  # HTTP 200, 10 entries (GH Actions run #1)
     },
     {
         "name": "The Jerusalem Post",
@@ -140,11 +126,11 @@ SOURCES = [
         # JPost gates some articles/columns behind "JPost Premium" while
         # most daily news stays free - a partial/metered paywall.
         "paywall": True,
-        "verified": True,  # HTTP 200, 26 entries (developer-run verify_sources.py)
+        "verified": True,  # HTTP 200, 26 entries (GH Actions run #1)
     },
 
     # =========================================================================
-    # Iranian / axis
+    # Iranian / axis — ⚠️ ZERO working sources, see README
     # =========================================================================
     # Deliberately NOT Iranian-domestic media: Press TV, Tasnim News Agency,
     # Mehr News Agency, and IRNA were all tried across earlier passes and
@@ -153,12 +139,14 @@ SOURCES = [
     # instruction, none of these are used. This perspective represents the
     # pro-Iran narrative via accessible Beirut-based "resistance axis"
     # media instead, which is also why it's named Iranian_axis rather than
-    # Iranian_state.
+    # Iranian_state. Both current candidates for that also failed real
+    # testing (GH Actions run #1) - commented out below. This perspective
+    # is currently EMPTY: no active source carries it.
     #
     # Tehran Times had been this perspective's one CONFIRMED-working
     # domestic source (HTTP 200, 30 entries, verified twice in earlier
     # passes) - kept below, commented out, in case excluding it turns out
-    # to be the wrong call once the axis candidates are actually tested.
+    # to be the wrong call.
     # {
     #     "name": "Tehran Times",
     #     "rss_url": "https://www.tehrantimes.com/rss",
@@ -166,53 +154,46 @@ SOURCES = [
     #     "language": "en",
     #     "verified": True,
     # },
-    {
-        "name": "Al Mayadeen English",
-        "rss_url": "https://english.almayadeen.net/rss",
-        "perspective": "Iranian_axis",
-        "language": "en",
-        # Beirut-registered, Lebanon-based, editorially aligned with the
-        # Iran/Hezbollah "resistance axis" - not Iranian state broadcasting
-        # itself. Primary source for this perspective per request.
-        "verified": None,  # low confidence on the URL
-    },
-    {
-        "name": "Al-Manar",
-        "rss_url": "https://english.almanar.com.lb/feed",
-        "perspective": "Iranian_axis",
-        "language": "en",
-        # Hezbollah's own media arm, Beirut-based. Secondary source per
-        # request, kept if it resolves.
-        "verified": None,  # low confidence on the URL (guessed /feed path)
-    },
+    # {
+    #     "name": "Al Mayadeen English",
+    #     "rss_url": "https://english.almayadeen.net/rss",
+    #     "perspective": "Iranian_axis",
+    #     "language": "en",
+    #     "verified": False,  # HTTP 403, 0 entries, bozo=1 (GH Actions run #1) - bot/WAF block
+    # },
+    # {
+    #     "name": "Al-Manar",
+    #     "rss_url": "https://english.almanar.com.lb/feed",
+    #     "perspective": "Iranian_axis",
+    #     "language": "en",
+    #     "verified": False,  # HTTP 404, 0 entries, bozo=1 (GH Actions run #1) - wrong/dead path
+    # },
 
     # =========================================================================
-    # Gulf (anti-Iran axis)
+    # Gulf (anti-Iran axis) — ⚠️ ZERO working sources, see README
     # =========================================================================
-    {
-        "name": "Al Arabiya English",
-        "rss_url": "https://english.alarabiya.net/rss.xml",
-        "perspective": "Gulf",
-        "language": "en",
-        "verified": None,  # low confidence on the URL
-    },
-    {
-        "name": "Arab News",
-        "rss_url": "https://www.arabnews.com/rss.xml",
-        "perspective": "Gulf",
-        "language": "en",
-        "verified": None,  # medium confidence
-    },
-    {
-        "name": "The National (UAE)",
-        "rss_url": "https://www.thenationalnews.com/rss.xml",
-        "perspective": "Gulf",
-        "language": "en",
-        # Abu Dhabi Media outlet with a metered subscription tier on part
-        # of its content.
-        "paywall": True,
-        "verified": None,  # low-medium confidence on the URL
-    },
+    # {
+    #     "name": "Al Arabiya English",
+    #     "rss_url": "https://english.alarabiya.net/rss.xml",
+    #     "perspective": "Gulf",
+    #     "language": "en",
+    #     "verified": False,  # HTTP 403, 0 entries, bozo=1 (GH Actions run #1) - bot/WAF block
+    # },
+    # {
+    #     "name": "Arab News",
+    #     "rss_url": "https://www.arabnews.com/rss.xml",
+    #     "perspective": "Gulf",
+    #     "language": "en",
+    #     "verified": False,  # HTTP 403, 0 entries, bozo=1 (GH Actions run #1) - bot/WAF block
+    # },
+    # {
+    #     "name": "The National (UAE)",
+    #     "rss_url": "https://www.thenationalnews.com/rss.xml",
+    #     "perspective": "Gulf",
+    #     "language": "en",
+    #     "paywall": True,
+    #     "verified": False,  # HTTP 404, 0 entries, bozo=1 (GH Actions run #1) - wrong/dead path
+    # },
 
     # =========================================================================
     # Qatari / pan-Arab
@@ -224,31 +205,30 @@ SOURCES = [
         "language": "en",
         # Legally blocked at the ISP/carrier level inside Israel (2024 law)
         # - not a dead feed; works normally from most other locations
-        # including Streamlit Community Cloud.
-        "verified": True,  # HTTP 200 (developer-run verify_sources.py)
+        # including Streamlit Community Cloud and GitHub Actions runners.
+        "verified": True,  # HTTP 200, 25 entries (GH Actions run #1)
     },
 
     # =========================================================================
-    # Turkish
+    # Turkish — ⚠️ ZERO working sources, see README
     # =========================================================================
-    {
-        "name": "TRT World",
-        "rss_url": "https://www.trtworld.com/rss",
-        "perspective": "Turkish",
-        "language": "en",
-        "verified": None,  # medium-low confidence
-    },
-    {
-        "name": "Daily Sabah",
-        "rss_url": "https://www.dailysabah.com/rss",
-        "perspective": "Turkish",
-        "language": "en",
-        "verified": None,  # low confidence - Daily Sabah's feeds have
-        # historically been per-category with numeric IDs
-        # (dailysabah.com/rssFeed/<id>); this is a guess at a simpler
-        # general path that may not exist. Check their site footer for the
-        # real feed link if this 404s.
-    },
+    # {
+    #     "name": "TRT World",
+    #     "rss_url": "https://www.trtworld.com/rss",
+    #     "perspective": "Turkish",
+    #     "language": "en",
+    #     "verified": False,  # HTTP 404, 0 entries (GH Actions run #1) - wrong/dead path
+    # },
+    # {
+    #     "name": "Daily Sabah",
+    #     "rss_url": "https://www.dailysabah.com/rss",
+    #     "perspective": "Turkish",
+    #     "language": "en",
+    #     "verified": False,  # HTTP 200 but 0 entries, bozo=1 (GH Actions run #1) - feed
+    #     # reached but empty/malformed; Daily Sabah's real feeds have
+    #     # historically been per-category with numeric IDs
+    #     # (dailysabah.com/rssFeed/<id>) - this generic path isn't it.
+    # },
 
     # =========================================================================
     # North Africa / Maghreb (French-language editions used throughout)
@@ -258,14 +238,14 @@ SOURCES = [
         "rss_url": "https://www.jeuneafrique.com/feed/",
         "perspective": "Maghreb",
         "language": "fr",
-        "verified": None,  # medium confidence
+        "verified": True,  # HTTP 200, 30 entries (GH Actions run #1)
     },
     {
         "name": "TSA - Tout Sur l'Algerie",
         "rss_url": "https://www.tsa-algerie.com/feed/",
         "perspective": "Maghreb",
         "language": "fr",
-        "verified": None,  # medium confidence
+        "verified": True,  # HTTP 200, 10 entries (GH Actions run #1)
     },
     {
         "name": "Hespress (French edition)",
@@ -276,34 +256,32 @@ SOURCES = [
         # edition (fr.hespress.com), chosen to match this perspective's
         # French-language framing and this project's en/fr/he keyword
         # matching.
-        "verified": None,  # low-medium confidence
+        "verified": True,  # HTTP 200, 10 entries (GH Actions run #1)
     },
-    {
-        "name": "Morocco World News",
-        "rss_url": "https://www.moroccoworldnews.com/feed/",
-        "perspective": "Maghreb",
-        "language": "en",
-        # English-language by design (per request), unlike the other three
-        # Maghreb sources above.
-        "verified": None,  # medium confidence
-    },
+    # {
+    #     "name": "Morocco World News",
+    #     "rss_url": "https://www.moroccoworldnews.com/feed/",
+    #     "perspective": "Maghreb",
+    #     "language": "en",
+    #     "verified": False,  # HTTP 403, 0 entries, bozo=1 (GH Actions run #1) - bot/WAF block
+    # },
 
     # =========================================================================
     # Egyptian
     # =========================================================================
-    {
-        "name": "Ahram Online",
-        "rss_url": "https://english.ahram.org.eg/rss.aspx",
-        "perspective": "Egyptian",
-        "language": "en",
-        "verified": None,  # low-medium confidence on the URL
-    },
+    # {
+    #     "name": "Ahram Online",
+    #     "rss_url": "https://english.ahram.org.eg/rss.aspx",
+    #     "perspective": "Egyptian",
+    #     "language": "en",
+    #     "verified": False,  # HTTP 403, 0 entries, bozo=1 (GH Actions run #1) - bot/WAF block
+    # },
     {
         "name": "Egypt Independent",
         "rss_url": "https://egyptindependent.com/feed/",
         "perspective": "Egyptian",
         "language": "en",
-        "verified": None,  # medium confidence
+        "verified": True,  # HTTP 200, 10 entries (GH Actions run #1)
     },
 
     # =========================================================================
@@ -314,29 +292,23 @@ SOURCES = [
         "rss_url": "https://www.france24.com/en/rss",
         "perspective": "French",
         "language": "en",
-        # Switched back to the general feed (from an unverified Middle-East
-        # -section variant used in an earlier pass) since it's the one
-        # actually CONFIRMED working, and this restructure's stakes are
-        # higher with more perspectives depending on a stable core.
-        "verified": True,  # HTTP 200, 23 entries (developer-run verify_sources.py)
+        "verified": True,  # HTTP 200, 23 entries (GH Actions run #1)
     },
     {
         "name": "RFI",
         "rss_url": "https://www.rfi.fr/en/rss",
         "perspective": "French",
         "language": "en",
-        "verified": None,  # best-known URL, not independently tested
+        "verified": True,  # HTTP 200, 21 entries (GH Actions run #1)
     },
-    {
-        "name": "L'Orient-Le Jour",
-        "rss_url": "https://www.lorientlejour.com/rss.xml",
-        "perspective": "French",
-        "language": "fr",
-        # Lebanese francophone daily; has a metered subscription tier
-        # ("L'Orient Today" / subscriber-only pieces) alongside free content.
-        "paywall": True,
-        "verified": None,  # low confidence on the URL
-    },
+    # {
+    #     "name": "L'Orient-Le Jour",
+    #     "rss_url": "https://www.lorientlejour.com/rss.xml",
+    #     "perspective": "French",
+    #     "language": "fr",
+    #     "paywall": True,
+    #     "verified": False,  # HTTP 404, 0 entries, bozo=1 (GH Actions run #1) - wrong/dead path
+    # },
 ]
 
 
@@ -347,6 +319,12 @@ SOURCES = [
 # topic doesn't pull from a single giant global pool of every perspective
 # regardless of relevance (e.g. a Strait of Hormuz analysis has no obvious
 # reason to include Maghreb or Egyptian sources).
+#
+# Kept as-is even though Iranian_axis/Gulf/Turkish currently have zero
+# active sources (see the ⚠️ warnings above): the mapping still describes
+# which perspectives are conceptually relevant to each topic, and any
+# source added back to one of those perspectives later flows into these
+# topics automatically without touching this dict again.
 #
 # Keyed by the exact topic string used elsewhere in the app (FEATURED_TOPICS
 # in app.py). A topic not listed here - i.e. any free-text live search - has

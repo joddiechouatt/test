@@ -127,19 +127,53 @@ Africa) across nine perspectives, not just the conflict actors —
 title/summary is ever fetched, but the "Open article" link may hit a
 paywall on the source's own site), and a `verified` field (`True` =
 confirmed resolving via a real `verify_sources.py` run, `False` = confirmed
-broken and excluded from the active list, `None` = not yet tested):
+broken and excluded from the active list — kept in the file commented out,
+not deleted, `None` = not yet tested).
 
-| Perspective | Sources | Confirmed working |
+**Live-tested for real** via `.github/workflows/verify-sources.yml`
+(GitHub Actions runners have normal internet access — this exists so
+verification doesn't depend on anyone having a local machine at all; run
+it from the repo's Actions tab, "Verify RSS Sources" → *Run workflow*, from
+a phone or anywhere else). Run #1 (2026-08-24) result: **12/22 resolved,
+10/22 failed**:
+
+| Perspective | Candidates tested | Result |
 |---|---|---|
-| Western | BBC, Reuters (via Google News), AP (via Google News) | BBC only |
-| Israeli | Arutz Sheva/Israel National News, Jerusalem Post | Jerusalem Post only |
-| Iranian_axis | Al Mayadeen English, Al-Manar | *(neither yet — see below)* |
-| Gulf | Al Arabiya English, Arab News, The National (UAE) | *(none yet)* |
-| Qatari | Al Jazeera English | Al Jazeera |
-| Turkish | TRT World, Daily Sabah | *(none yet)* |
-| Maghreb | Jeune Afrique, TSA, Hespress (FR edition), Morocco World News | *(none yet)* |
-| Egyptian | Ahram Online, Egypt Independent | *(none yet)* |
-| French | France 24, RFI, L'Orient-Le Jour | France 24 only |
+| Western | BBC, Reuters (via Google News), AP (via Google News) | **3/3 OK** |
+| Israeli | Arutz Sheva, Jerusalem Post | **2/2 OK** |
+| Iranian_axis | Al Mayadeen English, Al-Manar | **0/2 — ⚠️ empty, see below** |
+| Gulf | Al Arabiya English, Arab News, The National (UAE) | **0/3 — ⚠️ empty, see below** |
+| Qatari | Al Jazeera English | **1/1 OK** |
+| Turkish | TRT World, Daily Sabah | **0/2 — ⚠️ empty, see below** |
+| Maghreb | Jeune Afrique, TSA, Hespress (FR edition), Morocco World News | **3/4 OK** (Morocco World News: HTTP 403) |
+| Egyptian | Ahram Online, Egypt Independent | **1/2 OK** (Ahram Online: HTTP 403) |
+| French | France 24, RFI, L'Orient-Le Jour | **2/3 OK** (L'Orient-Le Jour: HTTP 404) |
+
+Failure detail, exactly as reported by the run: Al Mayadeen (403), Al-Manar
+(404), Al Arabiya (403), Arab News (403), The National (404), TRT World
+(404), Daily Sabah (HTTP 200 but 0 entries — feed reached, empty/malformed),
+Morocco World News (403), Ahram Online (403), L'Orient-Le Jour (404). A 403
+reads as bot/WAF blocking — out of scope to defeat, per this project's
+public-sources-only stance, same treatment as the earlier Times of Israel
+drop. A 404 means the guessed RSS path is wrong, not necessarily that the
+outlet has no feed at all — worth a manual look for the right URL rather
+than assuming the outlet is unreachable.
+
+**⚠️ Three perspectives currently have zero working sources: Iranian_axis,
+Gulf, Turkish.** Every candidate tried for each failed. Options, none
+applied yet — this is a decision for the project owner:
+1. Try the same Google News `site:` proxy workaround already used for
+   Reuters/AP (below) against one outlet per empty perspective (e.g.
+   `site:alarabiya.net`, `site:trtworld.com`) — cheap to test, and it's
+   already proven reliable for two sources.
+2. Hunt down the correct RSS path by hand for the 404s (TRT World, Al-Manar,
+   The National) — a wrong guess, not necessarily a dead feed.
+3. Drop these three perspectives from `TOPIC_PERSPECTIVES` for the
+   featured topics until a working source exists, so Iran–USA / Strait of
+   Hormuz / Turkey–Israel don't silently under-represent a viewpoint they
+   claim to cover.
+4. Leave as-is: the perspective stays defined (so a future source slots in
+   with no other code change) but currently contributes nothing.
 
 **Not every topic pulls from every source.** `sources.py`'s
 `TOPIC_PERSPECTIVES` maps each featured topic to the perspectives actually
@@ -177,27 +211,24 @@ upgrade didn't fix it), Tasnim News Agency and Mehr News Agency (blocking
 access outright, developer-confirmed), and IRNA (reported failing before
 being added here at all) were all tried and dropped. The perspective was
 renamed `Iranian_state` → `Iranian_axis` to match: the pro-Iran narrative
-is represented instead via accessible Beirut-based "resistance axis"
-media — **Al Mayadeen English** (primary) and **Al-Manar** (secondary) —
-rather than Iranian state broadcasting itself. Both are **UNVERIFIED**,
-low-confidence guesses at the feed path. Tehran Times had been this
+was meant to be represented instead via accessible Beirut-based
+"resistance axis" media — **Al Mayadeen English** (primary) and
+**Al-Manar** (secondary) — rather than Iranian state broadcasting itself.
+As of the run #1 live test, **both of those failed too** (Al Mayadeen:
+HTTP 403 bot-block; Al-Manar: HTTP 404 wrong/dead path), so this
+perspective currently has **no working source at all**, axis or state —
+see the ⚠️ callout above for next-step options. Tehran Times had been this
 perspective's one confirmed-working domestic source; it's kept in
 `sources.py`, commented out, in case excluding it turns out to be the
-wrong call. **If neither Al Mayadeen nor Al-Manar resolves, this
-perspective currently has no confirmed source at all** — worth
-reconsidering rather than shipping it empty.
+wrong call.
 
 **Verified status overall** (see `sources.py`'s file-level docstring and
-each entry's `verified` field for the full breakdown): only **five of the
-twenty-two** sources have ever been confirmed on a real network — BBC's
-general world feed, Jerusalem Post, Al Jazeera, and France 24's general
-feed, from earlier passes, plus whatever `verify_sources.py` confirms
-next. Every Gulf, Turkish, Maghreb, and Egyptian source — the entirety of
-this pass's MENA expansion — is `verified: None`: best-known URLs from
-documentation/training knowledge, not independently tested, several
-(Al Arabiya, Daily Sabah, Ahram Online, L'Orient-Le Jour, Al Mayadeen,
-Al-Manar) genuinely low-confidence guesses at the RSS path rather than an
-unconfirmed-but-standard one.
+each entry's `verified` field for the full breakdown): **12 of the 22
+tested sources are confirmed working** on a real network (GitHub Actions
+run #1, 2026-08-24) — see the table above for the per-perspective split.
+The other 10 are commented out in `sources.py` with the exact failure
+recorded inline, not deleted, in case a fixed URL or a Google-News-proxy
+workaround (see below) brings one back later.
 
 Al Jazeera fails from **inside Israel specifically** — blocked at the
 ISP/carrier level there by law (2024), confirmed by two different
@@ -210,19 +241,23 @@ egress point elsewhere, or accept that `feed_collector.py` will just log a
 warning and skip that source for the run — it degrades gracefully
 per-source rather than crashing.
 
-Run this before trusting any `verified: None` entry, after any change to
-`sources.py`, or before a fresh deploy — genuinely required this pass
-given how many sources are new, not just good practice:
+Re-run verification before trusting any `verified: None` entry or after any
+change to `sources.py`. Two ways, same script either way:
 
-```bash
-python verify_sources.py
-```
+- **No computer needed:** repo → Actions tab → "Verify RSS Sources" →
+  *Run workflow* (also runs automatically on any push touching
+  `sources.py`). Full plain-text output lands in the run's summary page —
+  readable from the GitHub mobile app.
+- **Locally**, if you have a machine with real network access:
+  ```bash
+  python verify_sources.py
+  ```
 
-It reports HTTP status + parsed entry count per source (and a hint when a
-failure looks like a local cert issue rather than a dead feed). After
-running it, update each entry's `verified` field to match, and comment out
-(the style already used for dropped sources above) anything confirmed
-actually broken.
+Either way it reports HTTP status + parsed entry count per source (and a
+hint when a failure looks like a local cert issue rather than a dead
+feed). After running it, update each entry's `verified` field to match,
+and comment out (the style already used for dropped sources above)
+anything confirmed actually broken.
 
 ## Running the pipeline locally
 
