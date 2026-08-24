@@ -119,12 +119,12 @@ narrative-monitor/
 ## Sources
 
 `sources.py` lists RSS feeds with a `perspective` label
-(`Western` / `Israeli` / `Iranian_state` / `Arab` / `French`) and an optional
+(`Western` / `Israeli` / `Iranian_axis` / `Arab` / `French`) and an optional
 `paywall: true` flag (shown as a 🔒 badge in the dashboard — only the RSS
 title/summary is ever fetched, but the "Open article" link may hit a
 paywall on the source's own site): BBC, Reuters, AP (Western); i24NEWS,
 Arutz Sheva/Israel National News, Jerusalem Post (Israeli); Al Mayadeen,
-Tehran Times (Iranian_state); Al Jazeera, Middle East Eye (Arab); France 24,
+Al-Manar (Iranian_axis); Al Jazeera, Middle East Eye (Arab); France 24,
 RFI (French).
 
 **Reuters and AP have no current public RSS feed** — both wire services
@@ -136,36 +136,42 @@ Google's aggregation/excerpt of their articles, so summaries are shorter
 and the framing is Google's snippet choice, not the outlet's own dek. Flagged
 in `sources.py` so it's not mistaken for a first-party source.
 
-**Times of Israel and Press TV were dropped**, developer-confirmed
-unusable: Times of Israel returns HTTP 403 (bot/WAF block) via one client
-and a malformed-XML parse error via another, both symptoms of the same
-block; Press TV fails with `SSL: CERTIFICATE_VERIFY_FAILED` from multiple
-networks including outside Israel — a genuinely broken/self-issued
-certificate on their end, not a geo-block or local trust-store issue (a
-`certifi` upgrade didn't fix it, and it recurred from Streamlit Community
-Cloud's own hosting). Replaced with i24NEWS and Arutz Sheva/Israel National
-News (Israeli), and Al Mayadeen English (Iranian_state — actually a
-Beirut-based outlet aligned with the Iran/Hezbollah axis rather than
-Iranian state media itself, included as an explicit fallback per request;
-see the note next to its entry in `sources.py` if you'd rather give it a
-distinct perspective label). Tasnim News Agency and Mehr News Agency were
-also tried as Press TV replacements and dropped — developer-confirmed
-blocking access outright, not a URL issue. **The three remaining
-replacements are UNVERIFIED** — best-known URLs, not independently tested,
-and for i24NEWS/Al Mayadeen specifically the feed path itself is a
-low-confidence guess (these outlets' RSS conventions aren't
-well-documented), not just an unconfirmed-but-standard URL. Jerusalem Post
-and Tehran Times were kept as-is precisely so each perspective still has
-one already-confirmed source regardless of how the new candidates test.
+**Times of Israel was dropped**, developer-confirmed unusable: returns
+HTTP 403 (bot/WAF block) via one client and a malformed-XML parse error via
+another, both symptoms of the same block. Replaced with i24NEWS and Arutz
+Sheva/Israel National News — **both UNVERIFIED**, best-known URLs, i24NEWS
+specifically a low-confidence guess at the feed path. Jerusalem Post was
+kept as-is so Israeli still has one already-confirmed source regardless of
+how the two candidates test.
+
+**No Iranian-domestic outlet could be made to work at all**, so the
+perspective was renamed `Iranian_state` → `Iranian_axis` and rebuilt around
+accessible "resistance axis" media instead. Every domestic outlet tried
+failed: Press TV (`SSL: CERTIFICATE_VERIFY_FAILED` from multiple networks
+including outside Israel and Streamlit Cloud itself — a genuinely
+broken/self-issued certificate, not a geo-block; a `certifi` upgrade didn't
+fix it), Tasnim News Agency and Mehr News Agency (blocking access outright,
+developer-confirmed), and IRNA (reported failing before being added here at
+all). Tehran Times had been this perspective's one CONFIRMED-working
+domestic source — kept in `sources.py`, commented out, in case dropping it
+turns out to be the wrong call once the axis candidates are actually
+tested. Replaced with **Al Mayadeen English** (primary) and **Al-Manar**
+(secondary) — both Beirut-based, editorially aligned with the Iran/
+Hezbollah axis rather than Iranian state broadcasting itself (which is the
+reason for the rename), and **both UNVERIFIED**, low-confidence guesses at
+the feed path. **If neither resolves when you run `verify_sources.py`,
+this perspective currently has no confirmed source at all** — worth
+reconsidering (Tehran Times back in? a different axis outlet?) rather than
+shipping it empty.
 
 **Verified status** (mixed — see `sources.py`'s file-level docstring for
 the full per-source breakdown): BBC's general world feed, Jerusalem Post,
-Tehran Times, Al Jazeera, and France 24's general feed have all been
-confirmed resolving with real entries in earlier passes. The
-Middle-East-section variants used for BBC and France 24 here, Middle East
-Eye, RFI, and the three Times-of-Israel/Press-TV replacements above are
-**unverified** — best-known URLs, not independently tested (most have a
-documented fallback in `sources.py` if they 404).
+Al Jazeera, and France 24's general feed have all been confirmed resolving
+with real entries in earlier passes. The Middle-East-section variants used
+for BBC and France 24 here, Middle East Eye, RFI, and every Israeli/
+Iranian_axis replacement above are **unverified** — best-known URLs, not
+independently tested (most have a documented fallback in `sources.py` if
+they 404).
 
 Al Jazeera fails from **inside Israel specifically** — blocked at the
 ISP/carrier level there by law (2024), confirmed by two different

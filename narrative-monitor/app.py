@@ -56,7 +56,7 @@ st.set_page_config(page_title="Narrative Monitoring", layout="wide", page_icon="
 PERSPECTIVE_STYLE = {
     "Western": {"label": "WESTERN", "var": "--west"},
     "Israeli": {"label": "ISRAELI", "var": "--isr"},
-    "Iranian_state": {"label": "IRANIAN", "var": "--iran"},
+    "Iranian_axis": {"label": "IRANIAN / AXIS", "var": "--iran"},
     "Arab": {"label": "ARAB", "var": "--arab"},
     "French": {"label": "FRENCH", "var": "--fr"},
 }

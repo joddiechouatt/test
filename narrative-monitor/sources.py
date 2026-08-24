@@ -2,7 +2,7 @@
 
 Each entry: {"name": str, "rss_url": str, "perspective": str, "paywall": bool}
 
-perspective is one of: "Western", "Israeli", "Iranian_state", "Arab", "French".
+perspective is one of: "Western", "Israeli", "Iranian_axis", "Arab", "French".
 "paywall" (optional, defaults to False if absent) marks a source known to
 gate some/all article content behind a subscription — app.py shows a 🔒
 badge next to these. Full article bodies are never fetched by this project
@@ -16,8 +16,9 @@ tasnimnews.com, DNS failure - consistent with the same policy). URLs are
 graded by confidence:
 
 - CONFIRMED (by the developer, via `verify_sources.py`, in earlier passes):
-  BBC World News, The Jerusalem Post, Tehran Times, Al Jazeera (works
-  outside Israel), France 24.
+  BBC World News, The Jerusalem Post, Al Jazeera (works outside Israel),
+  France 24. Tehran Times was also confirmed this way but is no longer
+  active - see the Iranian_axis section below.
 - KNOWN BROKEN, not guessable around: Reuters and AP both discontinued
   their public RSS feeds around 2020-2021 — there is no current official
   feed to point at. See the Reuters/AP entries below for the workaround
@@ -25,21 +26,23 @@ graded by confidence:
   service's own feed).
 - REMOVED (developer-confirmed unusable): The Times of Israel (HTTP 403 /
   bot-WAF block via one client, malformed-XML via another - same underlying
-  block, two symptoms), Press TV (SSL CERTIFICATE_VERIFY_FAILED - a
-  genuinely broken/self-issued cert on their end, confirmed from multiple
-  networks including outside Israel, not a geo-block or a local trust-store
-  issue), and Tasnim News Agency / Mehr News Agency (developer-confirmed
-  blocking access outright - their own site denied the request rather than
-  resolving as a normal feed). Times of Israel's replacements (i24NEWS,
-  Arutz Sheva/INN) and Al Mayadeen (Press TV's remaining replacement
-  candidate, after Tasnim/Mehr were dropped) are themselves UNVERIFIED -
-  run verify_sources.py and trim any that fail before treating this list
-  as final.
+  block, two symptoms), and every Iranian-domestic outlet tried: Press TV
+  (SSL CERTIFICATE_VERIFY_FAILED - a genuinely broken/self-issued cert on
+  their end, confirmed from multiple networks including outside Israel, not
+  a geo-block or a local trust-store issue), Tasnim News Agency / Mehr News
+  Agency (blocking access outright rather than resolving as a normal feed),
+  and IRNA (reported failing before being added here at all). The
+  Iranian_axis perspective (renamed from Iranian_state) now represents this
+  viewpoint via Beirut-based "resistance axis" media instead - see the note
+  in that section below. Times of Israel's replacements (i24NEWS,
+  Arutz Sheva/INN) and the axis media (Al Mayadeen, Al-Manar) are
+  themselves UNVERIFIED - run verify_sources.py and trim any that fail
+  before treating this list as final.
 - UNVERIFIED, best-known URL from documentation/training knowledge, not
   independently tested: Middle East Eye, RFI, i24NEWS, Arutz Sheva/Israel
-  National News, Al Mayadeen. i24NEWS and Al Mayadeen especially are
-  genuinely low-confidence guesses at the RSS path, not just an
-  unconfirmed-but-likely URL - these outlets' feed conventions aren't
+  National News, Al Mayadeen, Al-Manar. i24NEWS, Al Mayadeen, and Al-Manar
+  especially are genuinely low-confidence guesses at the RSS path, not just
+  an unconfirmed-but-likely URL - these outlets' feed conventions aren't
   well-documented, so a 404 on first try is a real possibility, not just a
   formality. Section-specific (Middle East / world) variants for BBC and
   France 24 are also unverified even though their general feeds are
@@ -122,43 +125,46 @@ SOURCES = [
         "paywall": True,
     },
 
-    # --- Iranian state / pro-Iran-axis media ---
+    # --- Iranian / axis media ---
     # Included deliberately: this tool's purpose is comparative narrative
     # analysis across the political spectrum, and this perspective is a
     # required data point for that comparison.
     #
-    # Press TV was dropped (see file-level note): confirmed
-    # SSL CERTIFICATE_VERIFY_FAILED from multiple networks including
-    # outside Israel - a genuinely broken/self-issued certificate on their
-    # end, not a geo-block or a local trust-store issue.
-    #
-    # Tasnim News Agency and Mehr News Agency were tried as replacement
-    # candidates and dropped: developer-confirmed blocking access (their own
-    # site denied/blocked the request) rather than resolving as a normal
-    # feed. Not guessed around - if you want to try either again later, an
-    # alternate URL or an access-restriction workaround would need to be
-    # found and re-verified from scratch, same as any other candidate.
+    # Renamed from "Iranian_state" to "Iranian_axis" and rebuilt entirely:
+    # every Iranian-domestic outlet tried (Press TV: SSL cert failure;
+    # Tasnim, Mehr: access blocked outright) failed to resolve, and per the
+    # developer this held across the board including IRNA (never added
+    # here - reported failing before being tried). Tehran Times had been
+    # the one CONFIRMED-working domestic outlet (HTTP 200, 30 entries,
+    # verified twice earlier), but was dropped anyway per explicit request
+    # to represent this perspective via accessible "axis" media instead of
+    # Iranian-domestic sources - left below, commented out, in case that
+    # reads as the wrong call once the axis candidates are actually tested.
+    # {
+    #     "name": "Tehran Times",
+    #     "rss_url": "https://www.tehrantimes.com/rss",
+    #     "perspective": "Iranian_axis",
+    # },
     {
         "name": "Al Mayadeen English",
         "rss_url": "https://english.almayadeen.net/rss",
-        "perspective": "Iranian_state",
-        # UNVERIFIED, LOW confidence on the URL. Also worth noting for
-        # accuracy: Al Mayadeen is a Beirut-registered, Lebanon-based
-        # outlet editorially aligned with the Iran/Hezbollah "resistance
-        # axis" - not literally Iranian state broadcasting the way Press TV
-        # or Tehran Times are. Grouped under Iranian_state per explicit
-        # request, as a fallback for this perspective if the two Iranian-
-        # domestic candidates above fail to resolve - but if you want that
-        # editorial distinction visible, consider a separate perspective
-        # label for it instead. Free, no paywall.
+        "perspective": "Iranian_axis",
+        # UNVERIFIED, LOW confidence on the URL - egress-blocked from this
+        # build environment same as every other candidate here. Primary
+        # source for this perspective per request. Beirut-registered,
+        # Lebanon-based, editorially aligned with the Iran/Hezbollah
+        # "resistance axis" - not Iranian state broadcasting itself, which
+        # is exactly why the perspective is now named Iranian_axis rather
+        # than Iranian_state. Free, no paywall.
     },
     {
-        "name": "Tehran Times",
-        "rss_url": "https://www.tehrantimes.com/rss",
-        "perspective": "Iranian_state",
-        # CONFIRMED (HTTP 200, 30 entries). Kept as the Iranian_state
-        # perspective's solid, already-verified source regardless of how
-        # the three candidates above test out.
+        "name": "Al-Manar",
+        "rss_url": "https://english.almanar.com.lb/feed",
+        "perspective": "Iranian_axis",
+        # UNVERIFIED, LOW confidence on the URL (guessed WordPress-style
+        # /feed path; their site structure isn't well-documented). Secondary
+        # source per request - Hezbollah's own media arm, Beirut-based,
+        # squarely part of the same axis. Free, no paywall.
     },
 
     # --- Arab ---

@@ -255,10 +255,10 @@ if __name__ == "__main__":
             "published": "2026-01-05",
         },
         {
-            "source": "Press TV",
-            "perspective": "Iranian_state",
+            "source": "Al Mayadeen English",
+            "perspective": "Iranian_axis",
             "title": "Iran vows firm response to US 'aggression' in the region",
-            "summary": "Iranian officials condemned what they called Washington's "
+            "summary": "Officials condemned what they called Washington's "
             "provocative military posture, warning of a decisive response.",
             "link": "https://example.com/2",
             "published": "2026-01-05",
