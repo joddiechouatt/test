@@ -122,9 +122,10 @@ narrative-monitor/
 (`Western` / `Israeli` / `Iranian_state` / `Arab` / `French`) and an optional
 `paywall: true` flag (shown as a 🔒 badge in the dashboard — only the RSS
 title/summary is ever fetched, but the "Open article" link may hit a
-paywall on the source's own site): BBC, Reuters, AP (Western); Times of
-Israel, Jerusalem Post (Israeli); Press TV, Tehran Times (Iranian_state);
-Al Jazeera, Middle East Eye (Arab); France 24, RFI (French).
+paywall on the source's own site): BBC, Reuters, AP (Western); i24NEWS,
+Arutz Sheva/Israel National News, Jerusalem Post (Israeli); Tasnim, Mehr,
+Al Mayadeen, Tehran Times (Iranian_state); Al Jazeera, Middle East Eye
+(Arab); France 24, RFI (French).
 
 **Reuters and AP have no current public RSS feed** — both wire services
 discontinued theirs around 2020-2021, and no historical URL still works.
@@ -135,28 +136,45 @@ Google's aggregation/excerpt of their articles, so summaries are shorter
 and the framing is Google's snippet choice, not the outlet's own dek. Flagged
 in `sources.py` so it's not mistaken for a first-party source.
 
+**Times of Israel and Press TV were dropped**, developer-confirmed
+unusable: Times of Israel returns HTTP 403 (bot/WAF block) via one client
+and a malformed-XML parse error via another, both symptoms of the same
+block; Press TV fails with `SSL: CERTIFICATE_VERIFY_FAILED` from multiple
+networks including outside Israel — a genuinely broken/self-issued
+certificate on their end, not a geo-block or local trust-store issue (a
+`certifi` upgrade didn't fix it, and it recurred from Streamlit Community
+Cloud's own hosting). Replaced with i24NEWS and Arutz Sheva/Israel National
+News (Israeli), and Tasnim News Agency, Mehr News Agency, and Al Mayadeen
+English (Iranian_state — Al Mayadeen is actually a Beirut-based outlet
+aligned with the Iran/Hezbollah axis rather than Iranian state media
+itself, included as an explicit fallback per request; see the note next to
+its entry in `sources.py` if you'd rather give it a distinct perspective
+label). **All five replacements are UNVERIFIED** — best-known URLs, not
+independently tested, and for i24NEWS/Tasnim/Al Mayadeen specifically the
+feed path itself is a low-confidence guess (these outlets' RSS conventions
+aren't well-documented), not just an unconfirmed-but-standard URL. Jerusalem
+Post and Tehran Times were kept as-is precisely so each perspective still
+has one already-confirmed source regardless of how the new candidates test.
+
 **Verified status** (mixed — see `sources.py`'s file-level docstring for
 the full per-source breakdown): BBC's general world feed, Jerusalem Post,
-Press TV, Tehran Times, Al Jazeera, and France 24's general feed have all
-been confirmed resolving with real entries in earlier passes. The
-Middle-East-section variants used for BBC and France 24 here, plus Middle
-East Eye and RFI, are **unverified** — best-known URLs, not independently
-tested (each has a documented fallback in `sources.py` if it 404s). The
-Times of Israel is known-flaky: it returns HTTP 403 via one HTTP client and
-a malformed-XML parse error via another, both symptoms of the same bot/WAF
-protection — included per request, but verify locally before relying on it.
+Tehran Times, Al Jazeera, and France 24's general feed have all been
+confirmed resolving with real entries in earlier passes. The
+Middle-East-section variants used for BBC and France 24 here, Middle East
+Eye, RFI, and all five Times-of-Israel/Press-TV replacements above are
+**unverified** — best-known URLs, not independently tested (most have a
+documented fallback in `sources.py` if they 404).
 
-Press TV and Al Jazeera also fail from **inside Israel specifically** —
-Al Jazeera is blocked at the ISP/carrier level there by law (2024), and
-Press TV, as Iranian state media, hits similar filtering — confirmed by two
-different certificate errors on two different Israeli networks (home ISP
-vs. mobile carrier), the signature of a network-level block, not a broken
-feed. Both are expected to resolve normally from most other locations,
-including Streamlit Community Cloud's hosting. **If you're verifying or
-running the pipeline from a country that blocks one of these outlets**,
-either use a VPN with an egress point elsewhere, or accept that
-`feed_collector.py` will just log a warning and skip that source for the
-run — it degrades gracefully per-source rather than crashing.
+Al Jazeera fails from **inside Israel specifically** — blocked at the
+ISP/carrier level there by law (2024), confirmed by two different
+certificate errors on two different Israeli networks (home ISP vs. mobile
+carrier), the signature of a network-level block, not a broken feed. It's
+expected to resolve normally from most other locations, including
+Streamlit Community Cloud's hosting. **If you're verifying or running the
+pipeline from a country that blocks an outlet**, either use a VPN with an
+egress point elsewhere, or accept that `feed_collector.py` will just log a
+warning and skip that source for the run — it degrades gracefully
+per-source rather than crashing.
 
 Re-run this after any change to `sources.py`, or before a fresh deploy:
 

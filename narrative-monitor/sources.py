@@ -9,38 +9,43 @@ badge next to these. Full article bodies are never fetched by this project
 regardless (only RSS title/summary), but the "Open article" link a reader
 clicks through to may hit a paywall, which is worth flagging honestly.
 
-Verification status: this file was rebuilt to the sources requested by the
-project owner (BBC/Reuters/AP, Times of Israel/Jerusalem Post, Press TV/
-Tehran Times, Al Jazeera/Middle East Eye, France 24/RFI), grouped by
-perspective. It could NOT be live-verified from the build environment —
-outbound HTTPS to every one of these domains is blocked by that sandbox's
-egress policy (confirmed again on feeds.bbci.co.uk and middleeasteye.net
-while building this revision). URLs below are graded by confidence:
+Verification status. It could NOT be live-verified from the build
+environment — outbound HTTPS to every candidate domain below is blocked by
+that sandbox's egress policy (confirmed again on i24news.tv, blocked, and
+tasnimnews.com, DNS failure - consistent with the same policy). URLs are
+graded by confidence:
 
-- CONFIRMED (by the developer, via `verify_sources.py`, in an earlier pass
-  on the previous source list): BBC World News, The Jerusalem Post, Press TV
-  (works outside Israel), Tehran Times, Al Jazeera (works outside Israel),
-  France 24.
+- CONFIRMED (by the developer, via `verify_sources.py`, in earlier passes):
+  BBC World News, The Jerusalem Post, Tehran Times, Al Jazeera (works
+  outside Israel), France 24.
 - KNOWN BROKEN, not guessable around: Reuters and AP both discontinued
   their public RSS feeds around 2020-2021 — there is no current official
   feed to point at. See the Reuters/AP entries below for the workaround
   used instead (Google News RSS, clearly not the same thing as the wire
   service's own feed).
-- KNOWN FLAKY: The Times of Israel returned HTTP 403 (bot/WAF block) via
-  `requests`, and a "mismatched tag" XML parse error via `feedparser`'s own
-  fetch (i.e. it likely serves a JS-challenge HTML page instead of the feed
-  to non-browser clients, depending on exactly how the request looks to
-  their WAF) — same underlying block, two different symptoms depending on
-  which HTTP client hits it. Re-included here because it was explicitly
-  requested; verify locally before relying on it.
+- REMOVED (developer-confirmed unusable, replaced this pass): The Times of
+  Israel (HTTP 403 / bot-WAF block via one client, malformed-XML via
+  another - same underlying block, two symptoms) and Press TV (SSL
+  CERTIFICATE_VERIFY_FAILED - a genuinely broken/self-issued cert on their
+  end, confirmed from multiple networks including outside Israel, not a
+  geo-block or a local trust-store issue). Their replacement candidates
+  below (i24NEWS, Arutz Sheva/INN for Israeli; Tasnim, Mehr, Al Mayadeen for
+  Iranian_state) are themselves UNVERIFIED - run verify_sources.py and
+  trim any that fail before treating this list as final.
 - UNVERIFIED, best-known URL from documentation/training knowledge, not
-  independently tested this pass: Middle East Eye, RFI. Section-specific
+  independently tested: Middle East Eye, RFI, i24NEWS, Arutz Sheva/Israel
+  National News, Tasnim News Agency, Mehr News Agency, Al Mayadeen. Several
+  of these (i24NEWS, Tasnim, Al Mayadeen especially) are genuinely
+  low-confidence guesses at the RSS path, not just an unconfirmed-but-likely
+  URL - these outlets' feed conventions aren't well-documented, so a 404 on
+  first try is a real possibility, not just a formality. Section-specific
   (Middle East / world) variants for BBC and France 24 are also unverified
   even though their general feeds are confirmed - a wrong section-path
   guess would 404 even though the outlet's RSS in general works.
 
 Run this locally (not in a network-restricted sandbox) before trusting any
-of the unconfirmed/flaky entries below:
+of the unconfirmed entries below - this is genuinely required this pass,
+not just good practice:
 
     python verify_sources.py
 """
@@ -84,14 +89,23 @@ SOURCES = [
     },
 
     # --- Israeli ---
+    # The Times of Israel was dropped (see file-level note): confirmed
+    # bot/WAF-blocked via two different HTTP clients, not a dead-but-fixable
+    # URL. Replaced with two candidates below, both UNVERIFIED.
     {
-        "name": "The Times of Israel",
-        "rss_url": "https://www.timesofisrael.com/feed/",
+        "name": "i24NEWS",
+        "rss_url": "https://www.i24news.tv/en/rss",
         "perspective": "Israeli",
-        # KNOWN FLAKY: see file-level note above (bot/WAF protection, two
-        # different symptoms depending on HTTP client). Re-included per
-        # request; run verify_sources.py before relying on it, and don't be
-        # surprised if feed_collector.py logs a fetch failure for this one.
+        # UNVERIFIED, LOW confidence - i24NEWS's feed conventions aren't
+        # well-documented; this is a best guess at the path, not a
+        # known-good URL with an unconfirmed status. Free, no paywall
+        # (ad/subscription-model TV network, not a metered news paywall).
+    },
+    {
+        "name": "Arutz Sheva - Israel National News",
+        "rss_url": "https://www.israelnationalnews.com/Rss.aspx",
+        "perspective": "Israeli",
+        # UNVERIFIED, medium-low confidence. Free, no paywall.
     },
     {
         "name": "The Jerusalem Post",
@@ -99,28 +113,59 @@ SOURCES = [
         "perspective": "Israeli",
         # CONFIRMED (HTTP 200, 26 entries). JPost gates some articles/
         # columns behind "JPost Premium" while most daily news stays free -
-        # a partial/metered paywall, flagged accordingly.
+        # a partial/metered paywall, flagged accordingly. Kept as the
+        # Israeli perspective's solid, already-verified source regardless
+        # of how the two candidates above test out.
         "paywall": True,
     },
 
-    # --- Iranian state media ---
+    # --- Iranian state / pro-Iran-axis media ---
     # Included deliberately: this tool's purpose is comparative narrative
-    # analysis across the political spectrum, and Iranian state outlets are
-    # a required data point for that comparison. Both are publicly
-    # accessible RSS feeds, no auth bypass involved, both free (no paywall).
+    # analysis across the political spectrum, and this perspective is a
+    # required data point for that comparison.
+    #
+    # Press TV was dropped (see file-level note): confirmed
+    # SSL CERTIFICATE_VERIFY_FAILED from multiple networks including
+    # outside Israel - a genuinely broken/self-issued certificate on their
+    # end, not a geo-block or a local trust-store issue. Replaced with two
+    # Iranian-domestic candidates below, both UNVERIFIED, plus Al Mayadeen
+    # as an explicit fallback.
     {
-        "name": "Press TV",
-        "rss_url": "https://www.presstv.ir/rss.xml",
+        "name": "Tasnim News Agency",
+        "rss_url": "https://www.tasnimnews.com/en/rss",
         "perspective": "Iranian_state",
-        # CONFIRMED working outside Israel. Blocked at the network level
-        # from inside Israel (see file-level note in the project's git
-        # history / README) - not a dead feed, a geo-block.
+        # UNVERIFIED, LOW confidence - same caveat as i24NEWS above, this
+        # is a guess at the path. Iran-hosted infrastructure can also be
+        # flaky/geo-sensitive from some networks independent of the URL
+        # being correct. Free, no paywall.
+    },
+    {
+        "name": "Mehr News Agency",
+        "rss_url": "https://en.mehrnews.com/rss",
+        "perspective": "Iranian_state",
+        # UNVERIFIED, medium confidence. Free, no paywall.
+    },
+    {
+        "name": "Al Mayadeen English",
+        "rss_url": "https://english.almayadeen.net/rss",
+        "perspective": "Iranian_state",
+        # UNVERIFIED, LOW confidence on the URL. Also worth noting for
+        # accuracy: Al Mayadeen is a Beirut-registered, Lebanon-based
+        # outlet editorially aligned with the Iran/Hezbollah "resistance
+        # axis" - not literally Iranian state broadcasting the way Press TV
+        # or Tehran Times are. Grouped under Iranian_state per explicit
+        # request, as a fallback for this perspective if the two Iranian-
+        # domestic candidates above fail to resolve - but if you want that
+        # editorial distinction visible, consider a separate perspective
+        # label for it instead. Free, no paywall.
     },
     {
         "name": "Tehran Times",
         "rss_url": "https://www.tehrantimes.com/rss",
         "perspective": "Iranian_state",
-        # CONFIRMED (HTTP 200, 30 entries).
+        # CONFIRMED (HTTP 200, 30 entries). Kept as the Iranian_state
+        # perspective's solid, already-verified source regardless of how
+        # the three candidates above test out.
     },
 
     # --- Arab ---
