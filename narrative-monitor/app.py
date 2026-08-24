@@ -91,14 +91,15 @@ CSS = (
   --gulf:#C2A55C; --turkish:#DA7B54; --maghreb:#6FA97A; --egyptian:#8FA6C9;
 }
 .stApp{background:var(--bg);color:var(--ink);}
-/* Selector covers both the current Streamlit DOM (data-testid, no more
-   .main wrapper) and older versions (.main .block-container) - the .main
-   -prefixed rule alone silently stopped matching after a Streamlit version
-   bump, which is why the page had been stretching edge-to-edge instead of
-   centering. margin:0 auto does the actual centering; max-width alone just
-   caps the width and leaves it flush left. */
-[data-testid="stMainBlockContainer"], .main .block-container, .block-container{
-  max-width:1080px;margin:0 auto;padding-top:1.5rem;padding-bottom:3rem;
+/* Scoped to the testid (current Streamlit) and the older .main-prefixed
+   form - deliberately NOT a bare .block-container selector: that matched
+   more than just the page's outer container on the deployed app (Streamlit
+   reuses "block-container" as a generic layout class on nested containers
+   too), which is what clipped the header title and stripped the search
+   input's own box styling in production - a change that hadn't shown up
+   testing locally against a different Streamlit version. */
+.main .block-container, [data-testid="stMainBlockContainer"]{
+  max-width:1080px;padding-top:1.5rem;padding-bottom:3rem;
 }
 .stApp, .stApp p, .stApp span, .stApp label{color:var(--ink);}
 [data-testid="stMarkdownContainer"] p{color:var(--ink);}
@@ -117,7 +118,11 @@ CSS = (
    content instead of one bordered card wrapping everything. */
 .st-key-searchcard{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:4px}
 .hint{color:var(--mut);font-size:12px;margin-top:10px;font-style:italic}
-.picklabel{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:9px}
+/* Only the "Pick a topic" label + the chip row are centered - the search
+   bar/button row below stays left-aligned as before, per request. */
+.picklabel{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--mut);margin-bottom:9px;text-align:center}
+.st-key-featured_topic_pill{display:flex;justify-content:center;width:100%}
+.st-key-featured_topic_pill [data-testid="stPills"]{justify-content:center;width:100%}
 .orsep{display:flex;align-items:center;gap:12px;margin:16px 0;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:1px}
 .orsep::before,.orsep::after{content:"";flex:1;height:1px;background:var(--line)}
 """
