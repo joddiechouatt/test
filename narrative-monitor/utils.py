@@ -8,12 +8,18 @@ import re
 import unicodedata
 
 
+_DASH_CHARS = "‐‑‒–—―−"  # hyphen/en/em/minus variants
+
+
 def slugify(topic: str) -> str:
     """Turn a free-text topic string into a filesystem-safe slug.
 
     "US-Iran conflict (2026)" -> "us-iran-conflict-2026"
+    "Iran–USA" -> "iran-usa" (unicode dashes are normalized to "-" first;
+    NFKD+ascii-ignore alone would just drop them, merging "Iran" and "USA")
     """
-    text = unicodedata.normalize("NFKD", topic).encode("ascii", "ignore").decode("ascii")
+    text = re.sub(f"[{_DASH_CHARS}]", "-", topic)
+    text = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode("ascii")
     text = text.lower().strip()
     text = re.sub(r"[^a-z0-9]+", "-", text)
     text = re.sub(r"-+", "-", text).strip("-")

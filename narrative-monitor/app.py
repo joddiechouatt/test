@@ -28,7 +28,7 @@ import pandas as pd
 import streamlit as st
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-DEFAULT_TOPIC_SLUG = "us-iran-conflict"
+DEFAULT_TOPIC_SLUG = "iran-usa"
 RELEVANCE_FLOOR = 3
 LIVE_MODE_REQUEST_CAP = 3  # per browser session
 COVERAGE_SIMILARITY_THRESHOLD = 0.25  # title-token Jaccard similarity

@@ -11,16 +11,19 @@ a claim of ground truth about any outlet's editorial intent. Treat every
 `tone` / `blame_attribution` / `disinfo_score` field as one LLM's read of a
 short title+summary, not a verified fact.
 
-The default demonstration topic is the US-Iran conflict (2026), but the tool
-is generic: give it any topic string and it auto-generates its own search
-keyword taxonomy for that topic.
+The dashboard ships with three pre-computed, clickable "featured topics"
+(Iran–USA, Turkey–Israel, Strait of Hormuz), each with its own keyword
+taxonomy and analyzed dataset — but the tool is generic: the free-text
+search box lets a visitor run the same pipeline live on any MENA topic,
+auto-generating its own search keyword taxonomy.
 
-> **Sample data notice:** `data/us-iran-conflict.json` in this repo was
-> generated with **synthetic placeholder data**, not a real pipeline run —
-> the environment this project was built in has no network access to RSS
-> feeds and no `ANTHROPIC_API_KEY` configured, so live collection/analysis
-> could not run. Every article in that file has `"synthetic": true` and a
-> `[SAMPLE DATA]`-prefixed title. Regenerate it for real (see
+> **Sample data notice:** `data/iran-usa.json`, `data/turkey-israel.json`,
+> and `data/strait-of-hormuz.json` in this repo were all generated with
+> **synthetic placeholder data**, not a real pipeline run — the environment
+> this project was built in has no network access to RSS feeds and no
+> `ANTHROPIC_API_KEY` configured, so live collection/analysis could not run.
+> Every article in these files has `"synthetic": true` and a
+> `[SAMPLE DATA]`-prefixed title. Regenerate them for real (see
 > [Running the pipeline](#running-the-pipeline-locally) below) before treating
 > the dashboard's content as genuine.
 
@@ -180,9 +183,12 @@ cp .env.example .env   # then fill in ANTHROPIC_API_KEY=sk-ant-...
 # 2. Verify your RSS sources actually resolve from your network
 python verify_sources.py
 
-# 3. Generate (or regenerate) a topic's dataset
-python run_pipeline.py "US-Iran Conflict"
-# -> writes data/us-iran-conflict.json, prints a summary (collected/analyzed/relevant)
+# 3. Generate (or regenerate) the three featured topics' datasets
+python run_pipeline.py "Iran–USA"
+python run_pipeline.py "Turkey–Israel"
+python run_pipeline.py "Strait of Hormuz"
+# -> writes data/iran-usa.json, data/turkey-israel.json, data/strait-of-hormuz.json,
+#    printing a summary (collected/analyzed/relevant) after each run
 
 # 4. Run the dashboard
 streamlit run app.py
