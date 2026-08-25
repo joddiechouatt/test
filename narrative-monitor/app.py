@@ -747,11 +747,16 @@ st.markdown(
 )
 
 df = articles_to_df(payload)
-df = df[df["relevance_score"] >= RELEVANCE_FLOOR].copy() if not df.empty else df
+# No post-analysis relevance filter here any more - analyzer.filter_by_relevance
+# (the AI prefilter, on each article's summary) already dropped anything
+# unlikely to matter before the expensive full-text-fetch/full-analysis steps
+# even ran. Every article that reaches this point already cleared
+# RELEVANCE_FLOOR once; a second, stricter gate here was judged not worth
+# the risk of silently hiding an article a reader would still find useful.
 
 if df.empty:
     st.markdown(
-        f'<div class="searchcard">No articles with relevance_score &ge; {RELEVANCE_FLOOR} for '
+        f'<div class="searchcard">No relevant articles found for '
         f'"{html.escape(st.session_state.active_label)}".</div>',
         unsafe_allow_html=True,
     )
