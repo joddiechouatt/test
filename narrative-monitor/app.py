@@ -474,7 +474,6 @@ def resolve_api_key() -> str | None:
     return key
 
 
-@st.cache_data(show_spinner=False)
 def run_live_pipeline(topic: str, _progress_callback=None) -> dict:
     """Run the full pipeline for a topic - featured or free-text, no
     difference in mechanism, though featured topics pull a curated subset of
