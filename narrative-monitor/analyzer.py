@@ -15,12 +15,34 @@ logger = logging.getLogger(__name__)
 
 MODEL = "claude-sonnet-4-5"
 CACHE_DIR = os.path.join(os.path.dirname(__file__), "data", ".cache")
+PREFILTER_CACHE_DIR = os.path.join(os.path.dirname(__file__), "data", ".cache_prefilter")
 
 MAX_RETRIES = 3
 RETRY_SLEEP_BASE = 2.0  # seconds, doubles each retry
 MAX_WORKERS = 5  # concurrent LLM calls for cache-miss articles - network-bound
                   # work parallelizes well; kept modest to stay clear of
                   # per-account rate limits rather than maximize throughput
+
+# Below this, an article isn't considered substantively about the topic and
+# is dropped by filter_by_relevance() before the (much more expensive)
+# full-text fetch + full analysis ever run on it. Also the threshold app.py
+# applies again, post-analysis, as a final display filter - see that
+# module's own use of RELEVANCE_FLOOR for why a second check there still
+# matters even with this prefilter in place.
+RELEVANCE_FLOOR = 3
+
+PREFILTER_SYSTEM_PROMPT = """You are a relevance classifier for a media monitoring tool. \
+Given a news article's title and a short summary, judge only whether the article is \
+substantively about the given topic. Return STRICT JSON only, no markdown fences, no \
+commentary, matching exactly this shape:
+
+{"relevance_score": 0}
+
+relevance_score: integer 0-5. 5 = clearly, substantively about the topic. 0 = \
+unrelated or only mentions it in passing. Judge from the title and summary alone - \
+they may be brief, so use your best judgment rather than demanding certainty.
+
+Output valid JSON and nothing else."""
 
 SYSTEM_PROMPT = """You are a media analyst. Given a news article's title and summary, \
 analyze how it frames the story. Return STRICT JSON only, no markdown fences, no \
@@ -67,12 +89,20 @@ def _cache_key(article: dict) -> str:
     return hashlib.sha256(basis.encode("utf-8")).hexdigest()
 
 
-def _cache_path(key: str) -> str:
-    return os.path.join(CACHE_DIR, f"{key}.json")
+def _prefilter_cache_key(article: dict) -> str:
+    # No content_source component here (unlike _cache_key above) - the
+    # prefilter always judges the RSS summary, never the full article, so
+    # there's only ever one basis to key on for a given link+title.
+    basis = (article.get("link") or "") + "|" + (article.get("title") or "")
+    return hashlib.sha256(basis.encode("utf-8")).hexdigest()
 
 
-def _load_from_cache(key: str) -> dict | None:
-    path = _cache_path(key)
+def _cache_path(key: str, cache_dir: str = CACHE_DIR) -> str:
+    return os.path.join(cache_dir, f"{key}.json")
+
+
+def _load_from_cache(key: str, cache_dir: str = CACHE_DIR) -> dict | None:
+    path = _cache_path(key, cache_dir)
     if os.path.exists(path):
         try:
             with open(path, "r", encoding="utf-8") as f:
@@ -82,10 +112,10 @@ def _load_from_cache(key: str) -> dict | None:
     return None
 
 
-def _save_to_cache(key: str, analysis: dict) -> None:
-    os.makedirs(CACHE_DIR, exist_ok=True)
+def _save_to_cache(key: str, analysis: dict, cache_dir: str = CACHE_DIR) -> None:
+    os.makedirs(cache_dir, exist_ok=True)
     try:
-        with open(_cache_path(key), "w", encoding="utf-8") as f:
+        with open(_cache_path(key, cache_dir), "w", encoding="utf-8") as f:
             json.dump(analysis, f, ensure_ascii=False, indent=2)
     except OSError as exc:
         logger.warning("analyzer: failed to write cache for key %s: %s", key, exc)
@@ -131,6 +161,135 @@ def _normalize_analysis(parsed: dict) -> dict:
         result["disinfo_score"] = 0
 
     return result
+
+
+def _prefilter_one(client, article: dict, model: str) -> int:
+    """Cheap relevance-only LLM call against title+summary. Never raises -
+    returns 0 (fail closed) on any failure after retries, same as
+    _analyze_one's total-failure behavior, so a persistent API problem
+    drops an article rather than letting it through unfiltered into the
+    much more expensive full-text-fetch + full-analysis steps."""
+    user_content = (
+        f"Title: {article.get('title', '')}\n"
+        f"Summary: {article.get('summary', '')}"
+    )
+
+    last_error = None
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = client.messages.create(
+                model=model,
+                max_tokens=100,  # just {"relevance_score": N} - no reason to
+                                  # allow anywhere near _analyze_one's budget
+                system=PREFILTER_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_content}],
+            )
+            text = "".join(
+                block.text for block in response.content if getattr(block, "type", None) == "text"
+            )
+            parsed = safe_json_parse(text)
+            if parsed is None:
+                raise ValueError(f"could not parse JSON from LLM response: {text[:500]!r}")
+            return max(0, min(5, int(parsed.get("relevance_score", 0))))
+        except Exception as exc:  # noqa: BLE001 - retry transient errors, never crash
+            last_error = exc
+            is_last = attempt == MAX_RETRIES
+            logger.warning(
+                "analyzer: prefilter attempt %d/%d failed for %r: %s",
+                attempt, MAX_RETRIES, article.get("title", "")[:60], exc,
+            )
+            if not is_last:
+                time.sleep(RETRY_SLEEP_BASE * attempt)
+
+    logger.warning(
+        "analyzer: prefilter gave up on %r after %d attempts (%s) - dropping it",
+        article.get("title", "")[:60], MAX_RETRIES, last_error,
+    )
+    return 0
+
+
+def filter_by_relevance(
+    articles: list[dict],
+    model: str = MODEL,
+    use_cache: bool = True,
+    relevance_floor: int = RELEVANCE_FLOOR,
+    progress_callback=None,
+) -> list[dict]:
+    """Drop articles that aren't substantively about the topic, judged from
+    title+summary alone, *before* the expensive steps (full-text fetch,
+    full narrative analysis) ever run on them.
+
+    This is a genuine two-phase filter, not a duplicate of app.py's
+    post-analysis RELEVANCE_FLOOR check: that later check still matters
+    even with this prefilter in place, because analyze_articles computes
+    its own relevance_score against the *full* article when one was
+    fetched - richer context than this prefilter had, so it can
+    legitimately disagree (in either direction) with this pass's summary-
+    only judgment. This prefilter's only job is to cheaply skip articles
+    unlikely to survive that final check at all, not to be the last word.
+
+    Concurrent (MAX_WORKERS at a time) and disk-cached (data/.cache_prefilter/
+    <hash>.json, keyed by link+title only - always the summary, so unlike
+    analyze_articles's cache there's no content_source to key on) - same
+    patterns as analyze_articles, see its docstring.
+
+    progress_callback(done, total), if given, is called once per article as
+    it completes (cache hit or freshly scored) - same contract as
+    analyze_articles's callback.
+
+    Returns the subset of `articles` whose relevance_score >= relevance_floor,
+    in original order, each carrying a new "prefilter_relevance_score" field.
+    """
+    client = get_anthropic_client()
+    total = len(articles)
+    scores: list[int | None] = [None] * total
+    done = 0
+
+    def _report():
+        nonlocal done
+        done += 1
+        if progress_callback:
+            progress_callback(done, total)
+
+    to_score = []
+    for i, article in enumerate(articles):
+        key = _prefilter_cache_key(article)
+        cached = _load_from_cache(key, PREFILTER_CACHE_DIR) if use_cache else None
+        if cached is not None:
+            scores[i] = cached.get("relevance_score", 0)
+            _report()
+        else:
+            to_score.append((i, article, key))
+
+    if to_score:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(to_score))) as pool:
+            future_map = {
+                pool.submit(_prefilter_one, client, article, model): (i, article, key)
+                for i, article, key in to_score
+            }
+            for future in concurrent.futures.as_completed(future_map):
+                i, article, key = future_map[future]
+                try:
+                    score = future.result()
+                except Exception:  # noqa: BLE001 - never crash the batch; fail closed
+                    score = 0
+                scores[i] = score
+                if use_cache:
+                    _save_to_cache(key, {"relevance_score": score}, PREFILTER_CACHE_DIR)
+                _report()
+
+    survivors = []
+    for article, score in zip(articles, scores):
+        if (score or 0) >= relevance_floor:
+            merged = dict(article)
+            merged["prefilter_relevance_score"] = score
+            survivors.append(merged)
+
+    logger.info(
+        "analyzer: prefilter kept %d/%d articles (relevance_score >= %d)",
+        len(survivors), total, relevance_floor,
+    )
+    return survivors
 
 
 def _analyze_one(client, article: dict, model: str) -> dict:

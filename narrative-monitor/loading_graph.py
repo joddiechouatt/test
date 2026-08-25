@@ -46,9 +46,9 @@ EDGES = [
 
 STATUS_PHRASES = [
     "Collecting articles…",
+    "Filtering by relevance…",
     "Fetching full article text…",
     "Analyzing narratives…",
-    "Comparing perspectives…",
 ]
 
 # teal, amber, ice-blue - the app's existing accent trio, cycled across

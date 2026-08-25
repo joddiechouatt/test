@@ -478,16 +478,16 @@ def run_live_pipeline(topic: str, _progress_callback=None) -> dict:
     """Run the full pipeline for a topic - featured or free-text, no
     difference in mechanism, though featured topics pull a curated subset of
     sources (see sources.get_sources_for_topic) rather than every source.
-    Not cached - every call re-runs the pipeline (collection, per-article
-    fetch, analysis) against a fresh set of sources.
+    Not cached - every call re-runs the pipeline (collection, relevance
+    prefilter, per-article fetch, analysis) against a fresh set of sources.
 
     _progress_callback, if given, is called as (phase: str, done: int,
-    total: int) during collection, full-article fetching, and analysis
-    (phase is "collecting" / "fetching_content" / "analyzing"), so the
-    caller can show real progress instead of an opaque wait - see
-    trigger_live_analysis.
+    total: int) during collection, relevance prefiltering, full-article
+    fetching, and analysis (phase is "collecting" / "prefiltering" /
+    "fetching_content" / "analyzing"), so the caller can show real progress
+    instead of an opaque wait - see trigger_live_analysis.
     """
-    from analyzer import analyze_articles
+    from analyzer import analyze_articles, filter_by_relevance
     from article_fetcher import fetch_full_text_for_articles
     from feed_collector import collect_articles
     from keyword_generator import generate_keywords
@@ -499,6 +499,21 @@ def run_live_pipeline(topic: str, _progress_callback=None) -> dict:
         sources=get_sources_for_topic(topic),
         progress_callback=(
             lambda done, total, name: _progress_callback("collecting", done, total)
+        ) if _progress_callback else None,
+    )
+    # Two-phase filtering: this cheap relevance-only pass judges title+
+    # summary alone and drops anything unlikely to matter *before* the
+    # expensive steps below (a real network fetch per article, then a full
+    # narrative-analysis LLM call with a much larger prompt) ever run on it.
+    # The keyword filter inside collect_articles already narrowed things
+    # down by simple term matching; this adds actual judgment on top of
+    # that, without paying full price for every article that judgment ends
+    # up rejecting.
+    articles = filter_by_relevance(
+        articles,
+        relevance_floor=RELEVANCE_FLOOR,
+        progress_callback=(
+            lambda done, total: _progress_callback("prefiltering", done, total)
         ) if _progress_callback else None,
     )
     # Try to fetch each kept article's actual body text before analysis -
@@ -565,6 +580,7 @@ def trigger_live_analysis(topic: str) -> None:
             return
         label = {
             "collecting": "Collecting from source",
+            "prefiltering": "Checking relevance",
             "fetching_content": "Fetching full article",
             "analyzing": "Analyzing article",
         }.get(phase, "Processing")
