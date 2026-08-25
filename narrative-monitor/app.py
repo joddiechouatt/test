@@ -478,18 +478,17 @@ def run_live_pipeline(topic: str, _progress_callback=None) -> dict:
     """Run the full pipeline for a topic - featured or free-text, no
     difference in mechanism, though featured topics pull a curated subset of
     sources (see sources.get_sources_for_topic) rather than every source.
-    Cached by topic string so repeated requests for the same topic (chip
-    clicked twice, or someone searches a featured topic's exact name by
-    hand) don't re-call the LLM - only runs this body on a cache miss, so
-    _progress_callback only ever fires when real work is happening.
+    Not cached - every call re-runs the pipeline (collection, per-article
+    fetch, analysis) against a fresh set of sources.
 
-    _progress_callback (leading underscore: excluded from the cache key, per
-    st.cache_data convention for non-data arguments like callables) is
-    called as (phase: str, done: int, total: int) during both collection
-    and analysis, so the caller can show real progress instead of an
-    opaque wait - see trigger_live_analysis.
+    _progress_callback, if given, is called as (phase: str, done: int,
+    total: int) during collection, full-article fetching, and analysis
+    (phase is "collecting" / "fetching_content" / "analyzing"), so the
+    caller can show real progress instead of an opaque wait - see
+    trigger_live_analysis.
     """
     from analyzer import analyze_articles
+    from article_fetcher import fetch_full_text_for_articles
     from feed_collector import collect_articles
     from keyword_generator import generate_keywords
     from sources import get_sources_for_topic
@@ -500,6 +499,17 @@ def run_live_pipeline(topic: str, _progress_callback=None) -> dict:
         sources=get_sources_for_topic(topic),
         progress_callback=(
             lambda done, total, name: _progress_callback("collecting", done, total)
+        ) if _progress_callback else None,
+    )
+    # Try to fetch each kept article's actual body text before analysis -
+    # a real read of the piece rather than just its RSS teaser. Silently
+    # falls back to the RSS summary per-article wherever this fails
+    # (network error, paywall, JS-rendered page, blocked scraper) - see
+    # article_fetcher.py's docstring.
+    articles = fetch_full_text_for_articles(
+        articles,
+        progress_callback=(
+            lambda done, total: _progress_callback("fetching_content", done, total)
         ) if _progress_callback else None,
     )
     analyzed = analyze_articles(
@@ -553,7 +563,11 @@ def trigger_live_analysis(topic: str) -> None:
     def _update_progress(phase: str, done: int, total: int) -> None:
         if total <= 0:
             return
-        label = "Collecting from source" if phase == "collecting" else "Analyzing article"
+        label = {
+            "collecting": "Collecting from source",
+            "fetching_content": "Fetching full article",
+            "analyzing": "Analyzing article",
+        }.get(phase, "Processing")
         progress_placeholder.markdown(
             f'<div class="hint" style="text-align:center">{label} {done}/{total}…</div>',
             unsafe_allow_html=True,

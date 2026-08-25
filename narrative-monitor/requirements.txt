@@ -4,3 +4,4 @@ anthropic>=0.34
 python-dotenv>=1.0
 pandas>=2.0
 requests>=2.31
+trafilatura>=1.6  # full-article body extraction, see article_fetcher.py

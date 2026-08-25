@@ -46,7 +46,7 @@ EDGES = [
 
 STATUS_PHRASES = [
     "Collecting articles…",
-    "Filtering by relevance…",
+    "Fetching full article text…",
     "Analyzing narratives…",
     "Comparing perspectives…",
 ]

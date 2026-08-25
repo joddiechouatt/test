@@ -55,7 +55,15 @@ Output valid JSON and nothing else."""
 
 
 def _cache_key(article: dict) -> str:
-    basis = (article.get("link") or "") + "|" + (article.get("title") or "")
+    # content_source is part of the key so a run that only had the RSS
+    # summary available (fetch failed, paywalled, ...) never masks a later
+    # run that succeeds at fetching the full article - without this, the
+    # first (weaker) analysis would get served from cache forever.
+    basis = (
+        (article.get("link") or "")
+        + "|" + (article.get("title") or "")
+        + "|" + (article.get("content_source") or "")
+    )
     return hashlib.sha256(basis.encode("utf-8")).hexdigest()
 
 
@@ -128,9 +136,24 @@ def _normalize_analysis(parsed: dict) -> dict:
 def _analyze_one(client, article: dict, model: str) -> dict:
     """Call the LLM once for a single article. Never raises: on any failure it
     returns a safe default analysis dict flagged with analysis_error."""
+    # Prefer the full article body (article_fetcher.py) over the RSS
+    # summary when one was actually fetched - a short feed teaser is a much
+    # weaker basis for judging narrative framing/tone/blame than the real
+    # piece. Falls back to the summary whenever full_text is missing (fetch
+    # failed, paywalled, JS-rendered page, etc.) - every article still gets
+    # analyzed either way, just on a shorter basis. The label told to the
+    # model reflects which one it's actually reading, since a one-paragraph
+    # summary and a multi-paragraph article warrant different confidence in
+    # e.g. disinfo_signals - "sparse because it's short" isn't the same as
+    # "sparse because the analysis missed something".
+    full_text = article.get("full_text")
+    if full_text:
+        content_label, content = "Full article text", full_text
+    else:
+        content_label, content = "Summary (full article text unavailable)", article.get("summary", "")
     user_content = (
         f"Title: {article.get('title', '')}\n"
-        f"Summary: {article.get('summary', '')}\n"
+        f"{content_label}: {content}\n"
         f"Source: {article.get('source', '')} (perspective: {article.get('perspective', '')})"
     )
 
