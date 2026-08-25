@@ -64,6 +64,11 @@ def _fetch_one(url: str) -> str | None:
             return None
         extracted = trafilatura.extract(
             response.text,
+            url=url,  # only used by trafilatura for its own log messages
+                      # (e.g. "discarding data: %s" when it rejects a page as
+                      # too short/duplicate/wrong-language) - without this it
+                      # logs "discarding data: None", which is harmless but
+                      # useless for telling which article actually failed
             include_comments=False,
             include_tables=False,
             favor_precision=True,  # prefer "clean but maybe incomplete" over
@@ -134,6 +139,11 @@ def fetch_full_text_for_articles(
             article["content_source"] = "full_text" if full_text else "summary_only"
             _report()
 
+    n_full = sum(1 for a in articles if a["content_source"] == "full_text")
+    logger.info(
+        "article_fetcher: %d/%d articles got full text, %d fell back to the RSS summary",
+        n_full, total, total - n_full,
+    )
     return articles
 
 
